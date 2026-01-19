@@ -20,10 +20,14 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",
     "@iconify-json/simple-icons": "^1.2.63",
+    "@libsql/client": "^0.17.0",
+    "@libsql/kysely-libsql": "^0.4.1",
     "@nuxt/hints": "1.0.0-alpha.5",
     "@nuxt/image": "2.0.0",
     "@nuxt/test-utils": "3.23.0",
     "@nuxt/ui": "^4.3.0",
+    "better-auth": "^1.4.13",
+    "kysely": "^0.28.9",
     "nuxt": "^4.2.2"
   },
   "devDependencies": {
@@ -31,9 +35,14 @@
     "@playwright/test": "^1.57.0",
     "@vitest/coverage-v8": "^4.0.17",
     "@vue/test-utils": "^2.4.6",
+    "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
     "happy-dom": "^20.3.0",
     "playwright-core": "^1.57.0",
+    "prettier": "3.8.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17",
     "vue-tsc": "^3.2.1"

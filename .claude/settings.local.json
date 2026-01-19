@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__acp__Bash",
+      "mcp__acp__Edit",
+      "mcp__better-auth__search",
+      "mcp__nuxt-ui__get-component",
+      "mcp__acp__Write"
+    ]
+  }
+}
