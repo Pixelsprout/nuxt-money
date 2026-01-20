@@ -23,6 +23,11 @@ logs
 .env.*
 !.env.example
 
+# Local database files
+local.db
+local.db-shm
+local.db-wal
+
 # Test coverage
 coverage/
 
