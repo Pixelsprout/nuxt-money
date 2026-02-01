@@ -7,11 +7,16 @@
       "mcp__nuxt-ui__get-component",
       "mcp__acp__Write",
       "mcp__better-auth__chat",
-      "mcp__better-auth__list_files"
+      "mcp__better-auth__list_files",
+      "mcp__vercel__list_teams",
+      "mcp__vercel__list_projects",
+      "mcp__vercel__get_project",
+      "mcp__vercel__list_deployments",
+      "mcp__vercel__get_deployment"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright-extension"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
