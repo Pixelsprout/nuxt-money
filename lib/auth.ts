@@ -11,6 +11,7 @@ export const auth = betterAuth({
       ...schema,
     },
   }),
+  baseURL: process.env.BETTER_AUTH_URL || process.env.NUXT_PUBLIC_SITE_URL,
   user: {
     deleteUser: {
       enabled: true,

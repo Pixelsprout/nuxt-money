@@ -19,7 +19,9 @@
     "test:e2e:ui": "playwright test --ui",
     "db:generate": "drizzle-kit generate --config ./config/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config ./config/drizzle.config.ts",
-    "db:studio": "drizzle-kit studio --config ./config/drizzle.config.ts"
+    "db:migrate:prod": "tsx scripts/migrate-production.ts",
+    "db:studio": "drizzle-kit studio --config ./config/drizzle.config.ts",
+    "db:seed:invite": "tsx scripts/seed-invite.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",
