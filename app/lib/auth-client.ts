@@ -7,11 +7,23 @@ let _authClient: ReturnType<typeof createAuthClient> | undefined;
 
 function getAuthClient() {
   if (!_authClient) {
-    // Get baseURL - plugin should have set this, otherwise fallback to window.location.origin
-    const baseURL =
-      typeof window !== "undefined"
-        ? (window as any).__NUXT_AUTH_BASE_URL__ || window.location.origin
-        : undefined;
+    let baseURL: string;
+
+    // Server-side: use runtime config directly
+    if (typeof window === "undefined") {
+      try {
+        const config = useRuntimeConfig();
+        baseURL = config.public.siteUrl;
+      } catch {
+        // Fallback if runtime config not available
+        baseURL = process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      }
+    }
+    // Client-side: use window variable set by plugin, or fallback to window.location.origin
+    else {
+      baseURL =
+        (window as any).__NUXT_AUTH_BASE_URL__ || window.location.origin;
+    }
 
     _authClient = createAuthClient({
       baseURL,

@@ -1,11 +1,17 @@
 import { authClient } from "~/lib/auth-client";
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  const { data: session } = await authClient.useSession(useFetch);
+  // Skip on server to prevent hydration mismatches
+  // Auth validation will happen on client where cookies are reliably available
+  if (import.meta.server) {
+    return;
+  }
 
-  const isAuthenticated = !!session.value;
   const isLoginPage = to.path === "/login";
   const isErrorPage = to.path === "/error";
+
+  const { data: session } = await authClient.useSession(useFetch);
+  const isAuthenticated = !!session.value;
 
   // Authenticated users can't access login page
   if (isAuthenticated && isLoginPage) {
