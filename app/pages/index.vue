@@ -23,7 +23,7 @@ const handleSignOut = async () => {
       </div>
 
       <div>
-        <UButton color="red" variant="soft" @click="handleSignOut">
+        <UButton color="error" variant="soft" @click="handleSignOut">
           Sign Out
         </UButton>
       </div>

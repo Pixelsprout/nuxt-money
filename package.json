@@ -16,7 +16,10 @@
     "test:unit": "vitest --project unit",
     "test:nuxt": "vitest --project nuxt",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "db:generate": "drizzle-kit generate --config ./config/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config ./config/drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config ./config/drizzle.config.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",
@@ -28,7 +31,9 @@
     "@nuxt/test-utils": "3.23.0",
     "@nuxt/ui": "^4.3.0",
     "better-auth": "^1.4.13",
+    "drizzle-orm": "^0.45.1",
     "kysely": "^0.28.9",
+    "nanoid": "^5.1.6",
     "nuxt": "^4.2.2"
   },
   "devDependencies": {
@@ -37,6 +42,7 @@
     "@vitest/coverage-v8": "^4.0.17",
     "@vue/test-utils": "^2.4.6",
     "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",

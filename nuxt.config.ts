@@ -1,3 +1,9 @@
+import { checkEnv } from "./config/env.config";
+import { env } from "node:process";
+import { fileURLToPath } from "node:url";
+
+checkEnv(env);
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
@@ -8,14 +14,17 @@ export default defineNuxtConfig({
     "@nuxt/test-utils",
   ],
 
+  alias: {
+    "#root": fileURLToPath(new URL(".", import.meta.url)),
+    "#db": fileURLToPath(new URL("./db", import.meta.url)),
+    "#utils": fileURLToPath(new URL("./server/utils", import.meta.url)),
+    "#config": fileURLToPath(new URL("./config", import.meta.url)),
+  },
+
   runtimeConfig: {
-    tursoDbUrl: process.env.TURSO_DATABASE_URL,
-    tursoAuthToken: process.env.TURSO_AUTH_TOKEN,
-    vercelClientId: process.env.VERCEL_CLIENT_ID,
-    vercelClientSecret: process.env.VERCEL_CLIENT_SECRET,
-    betterAuthSecret: process.env.BETTER_AUTH_SECRET,
-    public: {
-      betterAuthUrl: process.env.BETTER_AUTH_URL,
+    turso: {
+      databaseUrl: process.env.TURSO_DATABASE_URL,
+      authToken: import.meta.env.PROD ? process.env.TURSO_AUTH_TOKEN : "",
     },
   },
 

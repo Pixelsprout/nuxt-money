@@ -5,7 +5,9 @@
       "mcp__acp__Edit",
       "mcp__better-auth__search",
       "mcp__nuxt-ui__get-component",
-      "mcp__acp__Write"
+      "mcp__acp__Write",
+      "mcp__better-auth__chat",
+      "mcp__better-auth__list_files"
     ]
   }
 }

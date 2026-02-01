@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { authClient, signIn } from "~/lib/auth-client";
+import { signIn } from "~/lib/auth-client";
 
 const providers = [
   {
@@ -7,7 +7,9 @@ const providers = [
     icon: "i-simple-icons-google",
     color: "neutral" as const,
     variant: "subtle" as const,
-    onClick: signIn,
+    onClick: async () => {
+      await signIn.social({ provider: "google", callbackURL: "/" });
+    },
   },
 ];
 </script>
