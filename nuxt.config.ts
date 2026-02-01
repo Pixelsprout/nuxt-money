@@ -26,6 +26,9 @@ export default defineNuxtConfig({
       databaseUrl: process.env.TURSO_DATABASE_URL,
       authToken: import.meta.env.PROD ? process.env.TURSO_AUTH_TOKEN : "",
     },
+    public: {
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    },
   },
 
   devtools: {

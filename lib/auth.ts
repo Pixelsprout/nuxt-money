@@ -4,6 +4,19 @@ import * as schema from "#db/schema";
 import { useDrizzle } from "#utils/drizzle";
 import { inviteOnlyPlugin } from "./invite-only-plugin";
 
+// Get base URL from environment or runtime config
+function getBaseURL() {
+  // Server-side can use process.env directly
+  if (typeof process !== "undefined") {
+    return (
+      process.env.BETTER_AUTH_URL ||
+      process.env.NUXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000"
+    );
+  }
+  return "http://localhost:3000";
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(useDrizzle(), {
     provider: "sqlite",
@@ -11,7 +24,7 @@ export const auth = betterAuth({
       ...schema,
     },
   }),
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NUXT_PUBLIC_SITE_URL,
+  baseURL: getBaseURL(),
   user: {
     deleteUser: {
       enabled: true,
