@@ -3,7 +3,7 @@ import { createAuthClient } from "better-auth/vue";
 import type { auth } from "#root/lib/auth";
 
 export const authClient = createAuthClient({
-  baseURL: typeof window !== "undefined" ? window.location.origin : undefined,
+  baseURL: useRuntimeConfig().public.siteUrl,
   plugins: [inferAdditionalFields<typeof auth>()],
 });
 

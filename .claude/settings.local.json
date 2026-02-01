@@ -9,5 +9,9 @@
       "mcp__better-auth__chat",
       "mcp__better-auth__list_files"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "playwright-extension"
+  ],
+  "enableAllProjectMcpServers": true
 }
