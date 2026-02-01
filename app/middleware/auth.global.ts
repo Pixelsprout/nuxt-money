@@ -19,16 +19,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         });
         sessionData = session;
         isAuthenticated = !!session?.user;
-        console.log(
-          "[SERVER] Path:",
-          to.path,
-          "Session:",
-          !!session?.user,
-          "Cookies:",
-          event.node.req.headers.cookie?.substring(0, 50),
-        );
       } catch (error) {
-        console.error("[SERVER] Session check error:", error);
+        console.error("Server-side session check error:", error);
         isAuthenticated = false;
       }
     }
@@ -42,17 +34,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       });
       sessionData = session;
       isAuthenticated = !!session?.user;
-      console.log(
-        "[CLIENT] Path:",
-        to.path,
-        "Session:",
-        !!session?.user,
-        "Session data:",
-        session,
-      );
-      console.log("[CLIENT] All cookies:", document.cookie);
     } catch (error) {
-      console.error("[CLIENT] Session check error:", error);
+      console.error("Client-side session check error:", error);
       isAuthenticated = false;
     }
   }

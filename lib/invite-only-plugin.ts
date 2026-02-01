@@ -8,8 +8,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
   return {
     id: "invite-only",
     init() {
-      console.log("[invite-only] Plugin initialized");
-
       return {
         options: {
           databaseHooks: {
@@ -17,11 +15,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
               create: {
                 async before(user) {
                   const email = user.email;
-
-                  console.log(
-                    "[invite-only] Database hook - checking invite for:",
-                    email,
-                  );
 
                   if (!email) {
                     throw new APIError("BAD_REQUEST", {
@@ -39,12 +32,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
                     .limit(1);
 
                   if (invite.length === 0) {
-                    console.log(
-                      "[invite-only] No invite found for",
-                      email,
-                      "- blocking user creation",
-                    );
-
                     // Throw a custom error that we can catch in onResponse
                     const error: any = new Error(
                       "INVITE_REQUIRED: This application is invite-only. Please request an invite to continue.",
@@ -54,23 +41,11 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
                     throw error;
                   }
 
-                  console.log(
-                    "[invite-only] Invite found for",
-                    email,
-                    "- allowing user creation",
-                  );
-
                   // Return the user data to proceed with creation
                   return { data: user };
                 },
                 async after(user) {
                   const email = user.email;
-
-                  console.log(
-                    "[invite-only] User created successfully, marking invite as accepted for:",
-                    email,
-                  );
-
                   const db = useDrizzle();
 
                   // Update the invite to mark it as accepted
@@ -81,11 +56,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
                       updatedAt: new Date(),
                     })
                     .where(eq(schema.invite.email, email));
-
-                  console.log(
-                    "[invite-only] Invite marked as accepted for",
-                    email,
-                  );
                 },
               },
             },
@@ -104,8 +74,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
             body.includes("INVITE_REQUIRED") ||
             body.includes("invite-only")
           ) {
-            console.log("[invite-only] Intercepting error, redirecting...");
-
             const errorURL = `${ctx.baseURL}/error`;
             const message = encodeURIComponent(
               "This application is invite-only. Please request an invite to continue.",
@@ -123,7 +91,6 @@ export const inviteOnlyPlugin = (): BetterAuthPlugin => {
           }
         } catch (e) {
           // If we can't parse the response, let it through
-          console.log("[invite-only] Could not parse response:", e);
         }
       }
     },
