@@ -31,6 +31,17 @@ export default defineNuxtConfig({
     },
   },
 
+  app: {
+    head: {
+      script: [
+        {
+          children: `window.__NUXT_AUTH_BASE_URL__ = "${process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000"}";`,
+          type: "text/javascript",
+        },
+      ],
+    },
+  },
+
   devtools: {
     enabled: true,
   },
