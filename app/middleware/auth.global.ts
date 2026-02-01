@@ -1,17 +1,45 @@
 import { authClient } from "~/lib/auth-client";
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  // Skip on server to prevent hydration mismatches
-  // Auth validation will happen on client where cookies are reliably available
-  if (import.meta.server) {
-    return;
-  }
-
   const isLoginPage = to.path === "/login";
   const isErrorPage = to.path === "/error";
 
-  const { data: session } = await authClient.useSession(useFetch);
-  const isAuthenticated = !!session.value;
+  let isAuthenticated = false;
+  let sessionData = null;
+
+  // Server-side: validate session using Better Auth server API
+  if (import.meta.server) {
+    const event = useRequestEvent();
+    if (event) {
+      try {
+        // Dynamic import to prevent bundling server code in client
+        const { auth } = await import("#root/lib/auth");
+        const session = await auth.api.getSession({
+          headers: event.node.req.headers,
+        });
+        sessionData = session;
+        isAuthenticated = !!session?.user;
+        console.log(
+          "[SERVER] Path:",
+          to.path,
+          "Session:",
+          !!session?.user,
+          "Cookies:",
+          event.node.req.headers.cookie?.substring(0, 50),
+        );
+      } catch (error) {
+        console.error("[SERVER] Session check error:", error);
+        isAuthenticated = false;
+      }
+    }
+  }
+  // Client-side: use the auth client
+  else {
+    const { data: session } = await authClient.useSession(useFetch);
+    sessionData = session.value;
+    isAuthenticated = !!session.value;
+    console.log("[CLIENT] Path:", to.path, "Session:", !!session.value);
+  }
 
   // Authenticated users can't access login page
   if (isAuthenticated && isLoginPage) {

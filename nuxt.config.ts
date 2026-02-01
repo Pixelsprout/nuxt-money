@@ -38,9 +38,7 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
 
   routeRules: {
-    // Disable SSR for authenticated pages to prevent hydration mismatches
-    // These pages require client-side session validation
-    "/": { ssr: false },
+    "/": { prerender: false },
   },
 
   compatibilityDate: "2025-01-15",
