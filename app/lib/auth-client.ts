@@ -25,6 +25,8 @@ function getAuthClient() {
         (window as any).__NUXT_AUTH_BASE_URL__ || window.location.origin;
     }
 
+    console.log("[AUTH CLIENT] Initializing with baseURL:", baseURL);
+
     _authClient = createAuthClient({
       baseURL,
       plugins: [inferAdditionalFields<typeof auth>()],

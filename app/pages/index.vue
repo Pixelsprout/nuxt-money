@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { authClient } from "~/lib/auth-client";
 
-const { data: session } = await authClient.useSession(useFetch);
+// Fetch session directly from API endpoint
+const { data: session } = await useFetch("/api/auth/get-session", {
+  credentials: "include",
+});
 
 const handleSignOut = async () => {
   await authClient.signOut();
@@ -18,7 +21,7 @@ const handleSignOut = async () => {
       <div>
         <h1 class="text-3xl font-bold">Welcome to Nuxt Money</h1>
         <p class="text-muted mt-2">
-          Hello, {{ session?.user.name || session?.user.email }}!
+          Hello, {{ session?.user?.name || session?.user?.email }}!
         </p>
       </div>
 

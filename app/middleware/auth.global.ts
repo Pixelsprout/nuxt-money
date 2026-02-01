@@ -33,12 +33,28 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       }
     }
   }
-  // Client-side: use the auth client
+  // Client-side: check session via direct API call
   else {
-    const { data: session } = await authClient.useSession(useFetch);
-    sessionData = session.value;
-    isAuthenticated = !!session.value;
-    console.log("[CLIENT] Path:", to.path, "Session:", !!session.value);
+    try {
+      // Make direct fetch to session endpoint with credentials
+      const session = await $fetch("/api/auth/get-session", {
+        credentials: "include",
+      });
+      sessionData = session;
+      isAuthenticated = !!session?.user;
+      console.log(
+        "[CLIENT] Path:",
+        to.path,
+        "Session:",
+        !!session?.user,
+        "Session data:",
+        session,
+      );
+      console.log("[CLIENT] All cookies:", document.cookie);
+    } catch (error) {
+      console.error("[CLIENT] Session check error:", error);
+      isAuthenticated = false;
+    }
   }
 
   // Authenticated users can't access login page
