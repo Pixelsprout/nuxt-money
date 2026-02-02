@@ -33,3 +33,49 @@ export const akahuAccount = sqliteTable("akahu_account", {
 });
 
 export type AkahuAccount = InferSelectModel<typeof akahuAccount>;
+
+export const akahuTransaction = sqliteTable("akahu_transaction", {
+  id: text("id").primaryKey(), // nanoid()
+
+  // Foreign Keys
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accountId: text("account_id")
+    .notNull()
+    .references(() => akahuAccount.id, { onDelete: "cascade" }),
+
+  // Akahu-specific
+  akahuId: text("akahu_id").notNull(), // Akahu's _id
+
+  // Transaction Data
+  date: integer("date", { mode: "timestamp" }).notNull(),
+  description: text("description").notNull(),
+  amount: text("amount", { mode: "json" })
+    .$type<{
+      value: number;
+      currency: string;
+    }>()
+    .notNull(),
+
+  // Balance and enriched data
+  balance: text("balance", { mode: "json" }).$type<{
+    current: number;
+    currency: string;
+  }>(),
+
+  // Transaction metadata
+  type: text("type"), // DEBIT, CREDIT, etc.
+  category: text("category"),
+  merchant: text("merchant"),
+
+  // Sync tracking
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+export type AkahuTransaction = InferSelectModel<typeof akahuTransaction>;

@@ -43,6 +43,13 @@
       "when": 1770001791233,
       "tag": "0005_chubby_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1770006252744,
+      "tag": "0006_nebulous_photon",
+      "breakpoints": true
     }
   ]
 }

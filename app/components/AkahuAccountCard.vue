@@ -59,7 +59,10 @@ const balance = computed(() => {
 </script>
 
 <template>
-  <div class="border rounded-lg p-4 space-y-3">
+  <div
+    class="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-elevated/50 transition-colors"
+    @click="navigateTo(`/accounts/${account.id}`)"
+  >
     <div class="flex justify-between items-start">
       <div class="flex-1">
         <h3 class="font-semibold">{{ account.name }}</h3>
@@ -86,7 +89,7 @@ const balance = computed(() => {
         size="sm"
         icon="i-lucide-trash-2"
         :loading="deleting"
-        @click="handleDelete"
+        @click.stop="handleDelete"
       />
     </div>
   </div>
