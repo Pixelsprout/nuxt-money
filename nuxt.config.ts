@@ -26,6 +26,8 @@ export default defineNuxtConfig({
       databaseUrl: process.env.TURSO_DATABASE_URL,
       authToken: import.meta.env.PROD ? process.env.TURSO_AUTH_TOKEN : "",
     },
+    AKAHU_APP_TOKEN: process.env.AKAHU_APP_TOKEN,
+    AKAHU_USER_TOKEN: process.env.AKAHU_USER_TOKEN,
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
     },

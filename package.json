@@ -32,6 +32,7 @@
     "@nuxt/image": "2.0.0",
     "@nuxt/test-utils": "3.23.0",
     "@nuxt/ui": "^4.3.0",
+    "akahu": "^2.4.0",
     "better-auth": "^1.4.13",
     "drizzle-orm": "^0.45.1",
     "kysely": "^0.28.9",

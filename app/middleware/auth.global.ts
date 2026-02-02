@@ -1,11 +1,10 @@
-import { authClient } from "~/lib/auth-client";
+import type { User } from "#db/schema";
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   const isLoginPage = to.path === "/login";
   const isErrorPage = to.path === "/error";
 
   let isAuthenticated = false;
-  let sessionData = null;
 
   // Server-side: validate session using Better Auth server API
   if (import.meta.server) {
@@ -15,9 +14,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         // Dynamic import to prevent bundling server code in client
         const { auth } = await import("#root/lib/auth");
         const session = await auth.api.getSession({
-          headers: event.node.req.headers,
+          headers: event.node.req.headers as Record<string, string>,
         });
-        sessionData = session;
         isAuthenticated = !!session?.user;
       } catch (error) {
         console.error("Server-side session check error:", error);
@@ -29,10 +27,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   else {
     try {
       // Make direct fetch to session endpoint with credentials
-      const session = await $fetch("/api/auth/get-session", {
+      const session = await $fetch<{
+        user?: User;
+      }>("/api/auth/get-session", {
         credentials: "include",
       });
-      sessionData = session;
       isAuthenticated = !!session?.user;
     } catch (error) {
       console.error("Client-side session check error:", error);

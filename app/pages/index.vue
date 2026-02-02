@@ -1,15 +1,22 @@
 <script setup lang="ts">
 import { authClient } from "~/lib/auth-client";
+import type { User } from "#db/schema";
 
 // Fetch session directly from API endpoint
-const { data: session } = await useFetch("/api/auth/get-session", {
+const { data: session } = await useFetch<{
+  user?: User;
+  session?: {
+    id: string;
+    expiresAt: Date;
+  };
+}>("/api/auth/get-session", {
   credentials: "include",
 });
 
 const handleSignOut = async () => {
   await authClient.signOut();
   // Use reloadNuxtApp to force a full page reload with fresh session state
-  await reloadNuxtApp({
+  reloadNuxtApp({
     path: "/login",
   });
 };
