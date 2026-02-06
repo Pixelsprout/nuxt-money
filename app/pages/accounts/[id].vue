@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { AkahuAccount } from "#db/schema";
 
+definePageMeta({ layout: "default" });
+
 const route = useRoute();
-const router = useRouter();
 const accountId = route.params.id as string;
 
 // Fetch account details
@@ -48,48 +49,51 @@ const handleSynced = async (count: number) => {
 </script>
 
 <template>
-  <UPageCard>
-    <!-- Loading State -->
-    <div v-if="pending" class="text-center py-12">
-      <p class="text-muted">Loading account...</p>
-    </div>
+  <UDashboardPanel>
+    <template #header>
+      <UDashboardNavbar :title="account?.name || 'Account'">
+        <template #left>
+          <UButton
+            icon="i-lucide-arrow-left"
+            variant="ghost"
+            color="neutral"
+            to="/accounts"
+          />
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <!-- Content -->
-    <div v-else-if="account" class="space-y-6">
-      <!-- Back button -->
-      <div>
+    <template #body>
+      <!-- Loading State -->
+      <div v-if="pending" class="text-center py-12">
+        <p class="text-muted">Loading account...</p>
+      </div>
+
+      <!-- Content -->
+      <div v-else-if="account" class="space-y-6">
+        <!-- Account Header -->
+        <AccountHeader :account="account" />
+
+        <!-- Sync Form -->
+        <TransactionSyncForm :account-id="accountId" @synced="handleSynced" />
+
+        <!-- Transaction Table -->
+        <TransactionTable ref="transactionTable" :account-id="accountId" />
+      </div>
+
+      <!-- Error/Not Found State -->
+      <div v-else class="text-center py-12">
+        <p class="text-muted">Account not found</p>
         <UButton
+          class="mt-4"
           icon="i-lucide-arrow-left"
-          variant="ghost"
+          variant="outline"
           color="neutral"
-          @click="router.push('/accounts')"
+          to="/accounts"
         >
           Back to Accounts
         </UButton>
       </div>
-
-      <!-- Account Header -->
-      <AccountHeader :account="account" />
-
-      <!-- Sync Form -->
-      <TransactionSyncForm :account-id="accountId" @synced="handleSynced" />
-
-      <!-- Transaction Table -->
-      <TransactionTable ref="transactionTable" :account-id="accountId" />
-    </div>
-
-    <!-- Error/Not Found State -->
-    <div v-else class="text-center py-12">
-      <p class="text-muted">Account not found</p>
-      <UButton
-        class="mt-4"
-        icon="i-lucide-arrow-left"
-        variant="outline"
-        color="neutral"
-        @click="router.push('/accounts')"
-      >
-        Back to Accounts
-      </UButton>
-    </div>
-  </UPageCard>
+    </template>
+  </UDashboardPanel>
 </template>

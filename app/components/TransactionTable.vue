@@ -199,27 +199,29 @@ defineExpose({ refresh });
     </div>
 
     <!-- Table with virtualization -->
-    <UTable
-      :data="filteredTransactions"
-      :columns="columns"
-      :loading="loading"
-      class="min-w-full overflow-clip table-fixed border-separate border-spacing-0"
-      :ui="{
-        base: 'table-fixed border-separate border-spacing-0',
-        thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0',
-        th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-        td: 'border-b border-default',
-      }"
-    >
-      <template #empty>
-        <div class="text-center py-12">
-          <p class="text-muted">No transactions found</p>
-          <p class="text-sm text-muted mt-2">
-            Try syncing transactions or adjusting your filters
-          </p>
-        </div>
-      </template>
-    </UTable>
+    <div class="overflow-x-auto">
+      <UTable
+        :data="filteredTransactions"
+        :columns="columns"
+        :loading="loading"
+        class="min-w-full table-fixed border-separate border-spacing-0"
+        :ui="{
+          base: 'table-fixed border-separate border-spacing-0',
+          thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+          tbody: '[&>tr]:last:[&>td]:border-b-0',
+          th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+          td: 'border-b border-default',
+        }"
+      >
+        <template #empty>
+          <div class="text-center py-12">
+            <p class="text-muted">No transactions found</p>
+            <p class="text-sm text-muted mt-2">
+              Try syncing transactions or adjusting your filters
+            </p>
+          </div>
+        </template>
+      </UTable>
+    </div>
   </div>
 </template>
