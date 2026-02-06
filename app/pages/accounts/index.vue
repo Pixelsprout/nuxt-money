@@ -73,6 +73,7 @@ onMounted(() => {
             :key="account.id"
             :account="account"
             @deleted="refreshAccounts"
+            @synced="refreshAccounts"
           />
         </div>
 

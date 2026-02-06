@@ -1,5 +1,8 @@
 import { auth } from "#root/lib/auth";
 import { getAkahuClient, getAkahuUserToken } from "#root/server/utils/akahu";
+import { useDrizzle } from "#utils/drizzle";
+import { akahuAccount } from "#db/schema";
+import { eq } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   // Validate session
@@ -20,10 +23,27 @@ export default defineEventHandler(async (event) => {
     const userToken = getAkahuUserToken();
     const accounts = await akahuClient.accounts.list(userToken);
 
-    // Return account list with relevant fields
+    // Fetch already synced accounts from database
+    const db = useDrizzle();
+    const syncedAccounts = await db
+      .select()
+      .from(akahuAccount)
+      .where(eq(akahuAccount.userId, session.user.id));
+
+    // Create a Set of synced Akahu IDs for efficient lookup
+    const syncedAkahuIds = new Set(
+      syncedAccounts.map((account) => account.akahuId),
+    );
+
+    // Filter out accounts that are already synced
+    const unsyncedAccounts = accounts.filter(
+      (account: any) => !syncedAkahuIds.has(account._id),
+    );
+
+    // Return only unsynced accounts with relevant fields
     return {
       success: true,
-      accounts: accounts.map((account: any) => ({
+      accounts: unsyncedAccounts.map((account: any) => ({
         _id: account._id,
         name: account.name,
         type: account.type,

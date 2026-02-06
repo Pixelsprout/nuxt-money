@@ -3,7 +3,14 @@ import type { AkahuAccount } from "#db/schema";
 
 const props = defineProps<{
   account: AkahuAccount;
+  accountId: string;
 }>();
+
+const emit = defineEmits<{
+  synced: [];
+}>();
+
+const syncing = ref(false);
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-NZ", {
@@ -41,6 +48,21 @@ const lastSynced = computed(() => {
   }
   return "Never";
 });
+
+const handleSync = async () => {
+  syncing.value = true;
+  try {
+    await $fetch(`/api/accounts/synced/${props.accountId}/sync`, {
+      method: "POST",
+    });
+    emit("synced");
+  } catch (error) {
+    console.error("Failed to sync account:", error);
+    alert("Failed to sync account. Please try again.");
+  } finally {
+    syncing.value = false;
+  }
+};
 </script>
 
 <template>
@@ -52,9 +74,19 @@ const lastSynced = computed(() => {
           {{ account.formattedAccount }}
         </p>
       </div>
-      <UBadge :color="getTypeColor(account.type)" size="lg">
-        {{ account.type }}
-      </UBadge>
+      <div class="flex items-center gap-2">
+        <UButton
+          color="gray"
+          variant="ghost"
+          size="xs"
+          icon="i-lucide-refresh-cw"
+          :loading="syncing"
+          @click="handleSync"
+        />
+        <UBadge :color="getTypeColor(account.type)" size="lg">
+          {{ account.type }}
+        </UBadge>
+      </div>
     </div>
 
     <div class="flex justify-between items-end">

@@ -11,6 +11,7 @@ const {
   data: accountsData,
   pending,
   error,
+  refresh: refreshAccounts,
 } = await useFetch<{
   success: boolean;
   accounts: AkahuAccount[];
@@ -40,11 +41,18 @@ watch(
 // Refresh key for transaction table
 const transactionTable = ref();
 
-const handleSynced = async (count: number) => {
+const handleSynced = async () => {
+  console.log("handleSynced called, refreshing transaction table...");
   // Refresh the transaction table after sync
   if (transactionTable.value?.refresh) {
+    console.log("Calling transactionTable.refresh()");
     await transactionTable.value.refresh();
+    console.log("Transaction table refreshed");
+  } else {
+    console.log("transactionTable.value.refresh is not available");
   }
+  // Refresh the account data to update sync timestamp
+  await refreshAccounts();
 };
 </script>
 
@@ -72,7 +80,11 @@ const handleSynced = async (count: number) => {
       <!-- Content -->
       <div v-else-if="account" class="space-y-6">
         <!-- Account Header -->
-        <AccountHeader :account="account" />
+        <AccountHeader
+          :account="account"
+          :account-id="accountId"
+          @synced="handleSynced"
+        />
 
         <!-- Sync Form -->
         <TransactionSyncForm :account-id="accountId" @synced="handleSynced" />
