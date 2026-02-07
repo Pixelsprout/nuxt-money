@@ -26,22 +26,50 @@ const selectedCategory = computed(() => {
   return props.categories.find((c) => c.id === props.modelValue) || null;
 });
 
+// Check if we should show the "Create category" option
+const showCreateOption = computed(() => {
+  if (!searchTerm.value.trim()) return false;
+  const searchLower = searchTerm.value.toLowerCase();
+  return !props.categories.some((c) =>
+    c.name.toLowerCase().includes(searchLower),
+  );
+});
+
 // Transform categories for USelectMenu - returns full objects
 const categoryOptions = computed(() => {
-  return props.categories.map((c) => ({
+  const options = props.categories.map((c) => ({
     label: c.name,
     value: c.id,
     color: c.color || "#64748b",
   }));
+
+  // Add "Create category" option if search doesn't match any category
+  if (showCreateOption.value) {
+    options.unshift({
+      label: `Create "${searchTerm.value}"`,
+      value: "__create__",
+      color: "#64748b",
+    });
+  }
+
+  return options;
 });
 
 // The selected category ID for v-model
 const selectedCategoryId = computed({
-  get: () => props.modelValue,
-  set: async (categoryId: string | null) => {
-    if (!categoryId || categoryId === props.modelValue) return;
+  get: () => props.modelValue ?? undefined,
+  set: (categoryId: string | null | undefined) => {
+    if (!categoryId) return;
 
-    await updateTransactionCategory(categoryId);
+    // Handle the "Create category" option
+    if (categoryId === "__create__") {
+      openCreateModal();
+      return;
+    }
+
+    if (categoryId === props.modelValue) return;
+
+    updateTransactionCategory(categoryId);
   },
 });
 
@@ -151,7 +179,7 @@ const handleCreate = async () => {
 </script>
 
 <template>
-  <div class="inline-flex items-center gap-2">
+  <div>
     <USelectMenu
       v-model="selectedCategoryId"
       v-model:search-term="searchTerm"
@@ -160,6 +188,7 @@ const handleCreate = async () => {
       :disabled="loading"
       placeholder="Unassigned"
       value-key="value"
+      :ui="{ content: 'min-w-fit' }"
     >
       <template #default>
         <UBadge
@@ -185,15 +214,6 @@ const handleCreate = async () => {
         </UBadge>
       </template>
     </USelectMenu>
-
-    <UButton
-      icon="i-lucide-plus"
-      size="xs"
-      color="neutral"
-      variant="ghost"
-      @click="openCreateModal"
-      title="Create new category"
-    />
 
     <UModal v-model:open="showCreateModal" title="Create New Category">
       <template #body>

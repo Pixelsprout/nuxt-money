@@ -143,25 +143,6 @@ const columns: TableColumn<AkahuTransaction>[] = [
     },
   },
   {
-    accessorKey: "type",
-    header: "Type",
-    size: 100,
-    cell: ({ row }) => {
-      const type = row.getValue("type") as string | null;
-      if (!type) return "-";
-
-      return h(
-        UBadge,
-        {
-          color: getTypeColor(type),
-          variant: "subtle",
-          class: "capitalize",
-        },
-        () => type,
-      );
-    },
-  },
-  {
     accessorKey: "categoryId",
     header: "Category",
     size: 200,
@@ -179,6 +160,25 @@ const columns: TableColumn<AkahuTransaction>[] = [
           await refresh();
         },
       });
+    },
+  },
+  {
+    accessorKey: "type",
+    header: "Type",
+    size: 100,
+    cell: ({ row }) => {
+      const type = row.getValue("type") as string | null;
+      if (!type) return "-";
+
+      return h(
+        UBadge,
+        {
+          color: getTypeColor(type),
+          variant: "subtle",
+          class: "capitalize",
+        },
+        () => type,
+      );
     },
   },
 ];
