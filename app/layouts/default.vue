@@ -37,6 +37,11 @@ const navigationLinks = [
       icon: "i-lucide-wallet",
       to: "/accounts",
     },
+    {
+      label: "Categories",
+      icon: "i-lucide-tags",
+      to: "/categories",
+    },
   ],
 ];
 </script>

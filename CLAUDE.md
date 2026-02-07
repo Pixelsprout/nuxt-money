@@ -128,7 +128,7 @@ After modifying schema files:
 
 ```bash
 npm run db:generate  # Creates migration file
-# Migration is applied automatically on next dev server start
+pnpm run db:migrate  # Applies migration to database
 ```
 
 ## Component Patterns

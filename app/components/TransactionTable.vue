@@ -8,14 +8,16 @@ const UBadge = resolveComponent("UBadge");
 const CategorySelector = resolveComponent("CategorySelector");
 
 const props = defineProps<{
-  accountId: string;
+  accountId?: string;
+  transactions?: AkahuTransaction[];
+  columns?: TableColumn<AkahuTransaction>[];
 }>();
 
 const searchTerm = ref("");
 const typeFilter = ref<"ALL" | "DEBIT" | "CREDIT">("ALL");
 const loading = ref(false);
 
-// Fetch all transactions
+// Fetch all transactions (only if accountId is provided)
 const {
   data: transactionsData,
   refresh,
@@ -26,9 +28,14 @@ const {
   total: number;
 }>(`/api/transactions/${props.accountId}`, {
   key: `transactions-${props.accountId}`,
+  immediate: !!props.accountId, // Only fetch if accountId is provided
 });
 
 const allTransactions = computed<AkahuTransaction[]>(() => {
+  // Use provided transactions prop if available, otherwise use fetched data
+  if (props.transactions) {
+    return props.transactions;
+  }
   return transactionsData.value?.transactions || [];
 });
 
@@ -102,8 +109,8 @@ const getTypeColor = (type: string | null) => {
   return "error";
 };
 
-// Table columns
-const columns: TableColumn<AkahuTransaction>[] = [
+// Default table columns
+const defaultColumns: TableColumn<AkahuTransaction>[] = [
   {
     accessorKey: "date",
     header: "Date",
@@ -183,6 +190,9 @@ const columns: TableColumn<AkahuTransaction>[] = [
   },
 ];
 
+// Use provided columns or default columns
+const tableColumns = computed(() => props.columns || defaultColumns);
+
 defineExpose({ refresh });
 </script>
 
@@ -232,7 +242,7 @@ defineExpose({ refresh });
     <div class="overflow-x-auto">
       <UTable
         :data="filteredTransactions"
-        :columns="columns"
+        :columns="tableColumns"
         :loading="loading"
         class="min-w-full table-fixed border-separate border-spacing-0"
         :ui="{
