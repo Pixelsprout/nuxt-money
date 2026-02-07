@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import type { TransactionCategory } from "#db/schema";
+import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+
+const [DefineCreateFormTemplate, ReuseCreateFormTemplate] =
+  createReusableTemplate();
+const isDesktop = useMediaQuery("(min-width: 768px)");
 
 definePageMeta({ layout: "default" });
 
@@ -150,37 +155,46 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Create Category Modal -->
-        <UModal v-model:open="showCreateModal" title="Create Category">
+        <!-- Reusable template for modal/drawer content -->
+        <DefineCreateFormTemplate>
+          <div class="space-y-4">
+            <UInput
+              v-model="formData.name"
+              label="Name"
+              placeholder="e.g., Groceries"
+              required
+              @keyup.enter="createCategory"
+            />
+
+            <div>
+              <label class="text-sm font-medium block mb-2">Color</label>
+              <input
+                v-model="formData.color"
+                type="color"
+                class="w-full h-10 rounded cursor-pointer"
+              />
+            </div>
+
+            <UTextarea
+              v-model="formData.description"
+              label="Description (optional)"
+              placeholder="What is this category for?"
+            />
+          </div>
+        </DefineCreateFormTemplate>
+
+        <!-- Desktop: Modal -->
+        <UModal
+          v-if="isDesktop"
+          v-model:open="showCreateModal"
+          title="Create Category"
+        >
           <UButton icon="i-lucide-plus" @click="showCreateModal = true">
             Create Category
           </UButton>
 
           <template #body>
-            <div class="space-y-4">
-              <UInput
-                v-model="formData.name"
-                label="Name"
-                placeholder="e.g., Groceries"
-                required
-                @keyup.enter="createCategory"
-              />
-
-              <div>
-                <label class="text-sm font-medium block mb-2">Color</label>
-                <input
-                  v-model="formData.color"
-                  type="color"
-                  class="w-full h-10 rounded cursor-pointer"
-                />
-              </div>
-
-              <UTextarea
-                v-model="formData.description"
-                label="Description (optional)"
-                placeholder="What is this category for?"
-              />
-            </div>
+            <ReuseCreateFormTemplate />
           </template>
 
           <template #footer="{ close }">
@@ -194,6 +208,35 @@ onMounted(() => {
             </div>
           </template>
         </UModal>
+
+        <!-- Mobile: Drawer -->
+        <UDrawer v-else v-model:open="showCreateModal" title="Create Category">
+          <UButton icon="i-lucide-plus" @click="showCreateModal = true">
+            Create Category
+          </UButton>
+
+          <template #body>
+            <ReuseCreateFormTemplate />
+          </template>
+
+          <template #footer>
+            <UButton
+              color="neutral"
+              variant="outline"
+              @click="showCreateModal = false"
+              class="justify-center"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              :loading="isCreating"
+              @click="createCategory"
+              class="justify-center"
+            >
+              Create
+            </UButton>
+          </template>
+        </UDrawer>
       </div>
     </UPageCard>
   </UDashboardPanel>

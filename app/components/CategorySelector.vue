@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import type { TransactionCategory } from "#db/schema";
+import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+
+const [DefineCreateCategoryTemplate, ReuseCreateCategoryTemplate] =
+  createReusableTemplate();
+const isDesktop = useMediaQuery("(min-width: 768px)");
 
 const props = defineProps<{
   modelValue: string | null;
@@ -215,31 +220,41 @@ const handleCreate = async () => {
       </template>
     </USelectMenu>
 
-    <UModal v-model:open="showCreateModal" title="Create New Category">
-      <template #body>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Category Name</label>
-            <UInput
-              v-model="newCategoryName"
-              placeholder="e.g., Groceries"
-              :disabled="loading"
-            />
-          </div>
+    <!-- Reusable template for modal/drawer content -->
+    <DefineCreateCategoryTemplate>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Category Name</label>
+          <UInput
+            v-model="newCategoryName"
+            placeholder="e.g., Groceries"
+            :disabled="loading"
+          />
+        </div>
 
-          <div>
-            <label class="block text-sm font-medium mb-2">Color</label>
-            <div class="flex items-center gap-3">
-              <UColorPicker v-model="newCategoryColor" />
-              <UBadge
-                size="sm"
-                :style="{ backgroundColor: newCategoryColor, color: 'white' }"
-              >
-                Preview
-              </UBadge>
-            </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">Color</label>
+          <div class="flex items-center gap-3">
+            <UColorPicker v-model="newCategoryColor" />
+            <UBadge
+              size="sm"
+              :style="{ backgroundColor: newCategoryColor, color: 'white' }"
+            >
+              Preview
+            </UBadge>
           </div>
         </div>
+      </div>
+    </DefineCreateCategoryTemplate>
+
+    <!-- Desktop: Modal -->
+    <UModal
+      v-if="isDesktop"
+      v-model:open="showCreateModal"
+      title="Create New Category"
+    >
+      <template #body>
+        <ReuseCreateCategoryTemplate />
       </template>
 
       <template #footer>
@@ -262,5 +277,32 @@ const handleCreate = async () => {
         </div>
       </template>
     </UModal>
+
+    <!-- Mobile: Drawer -->
+    <UDrawer v-else v-model:open="showCreateModal" title="Create New Category">
+      <template #body>
+        <ReuseCreateCategoryTemplate />
+      </template>
+
+      <template #footer>
+        <UButton
+          variant="ghost"
+          color="neutral"
+          @click="showCreateModal = false"
+          :disabled="loading"
+          class="justify-center"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          icon="i-lucide-plus"
+          :loading="loading"
+          @click="handleCreate"
+          class="justify-center"
+        >
+          Create Category
+        </UButton>
+      </template>
+    </UDrawer>
   </div>
 </template>

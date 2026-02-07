@@ -2,8 +2,13 @@
 import type { TransactionCategory, AkahuTransaction } from "#db/schema";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
+import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
 
 const UBadge = resolveComponent("UBadge");
+
+const [DefineEditFormTemplate, ReuseEditFormTemplate] =
+  createReusableTemplate();
+const isDesktop = useMediaQuery("(min-width: 768px)");
 
 definePageMeta({ layout: "default" });
 
@@ -232,50 +237,54 @@ const saveChanges = async () => {
           @edit="handleEdit"
         />
 
-        <!-- Edit Modal -->
+        <!-- Reusable template for modal/drawer content -->
+        <DefineEditFormTemplate>
+          <div class="space-y-4">
+            <!-- Name Input -->
+            <div>
+              <label class="block text-sm font-medium mb-2">Name</label>
+              <UInput
+                v-model="editedCategory.name"
+                placeholder="Category name"
+              />
+            </div>
+
+            <!-- Color Picker -->
+            <div>
+              <label class="block text-sm font-medium mb-2">Color</label>
+              <div class="flex items-center gap-3">
+                <input
+                  v-model="editedCategory.color"
+                  type="color"
+                  class="w-12 h-12 rounded cursor-pointer"
+                />
+                <span class="text-sm text-muted">{{
+                  editedCategory.color
+                }}</span>
+              </div>
+            </div>
+
+            <!-- Description Textarea -->
+            <div>
+              <label class="block text-sm font-medium mb-2">Description</label>
+              <UTextarea
+                v-model="editedCategory.description"
+                placeholder="Category description (optional)"
+                rows="3"
+              />
+            </div>
+          </div>
+        </DefineEditFormTemplate>
+
+        <!-- Desktop: Modal -->
         <UModal
+          v-if="isDesktop"
           v-model:open="editMode"
           title="Edit Category"
           :ui="{ footer: 'justify-end' }"
         >
           <template #body>
-            <div class="space-y-4">
-              <!-- Name Input -->
-              <div>
-                <label class="block text-sm font-medium mb-2">Name</label>
-                <UInput
-                  v-model="editedCategory.name"
-                  placeholder="Category name"
-                />
-              </div>
-
-              <!-- Color Picker -->
-              <div>
-                <label class="block text-sm font-medium mb-2">Color</label>
-                <div class="flex items-center gap-3">
-                  <input
-                    v-model="editedCategory.color"
-                    type="color"
-                    class="w-12 h-12 rounded cursor-pointer"
-                  />
-                  <span class="text-sm text-muted">{{
-                    editedCategory.color
-                  }}</span>
-                </div>
-              </div>
-
-              <!-- Description Textarea -->
-              <div>
-                <label class="block text-sm font-medium mb-2">
-                  Description
-                </label>
-                <UTextarea
-                  v-model="editedCategory.description"
-                  placeholder="Category description (optional)"
-                  rows="3"
-                />
-              </div>
-            </div>
+            <ReuseEditFormTemplate />
           </template>
 
           <template #footer>
@@ -287,6 +296,31 @@ const saveChanges = async () => {
             </UButton>
           </template>
         </UModal>
+
+        <!-- Mobile: Drawer -->
+        <UDrawer v-else v-model:open="editMode" title="Edit Category">
+          <template #body>
+            <ReuseEditFormTemplate />
+          </template>
+
+          <template #footer>
+            <UButton
+              variant="outline"
+              color="neutral"
+              @click="cancelEdit"
+              class="justify-center"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              :loading="saving"
+              @click="saveChanges"
+              class="justify-center"
+            >
+              Save Changes
+            </UButton>
+          </template>
+        </UDrawer>
 
         <!-- Transaction Section -->
         <div class="space-y-4">
