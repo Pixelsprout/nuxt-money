@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { h, resolveComponent } from "vue";
-import type { AkahuTransaction } from "#db/schema";
+import type { AkahuTransaction, TransactionCategory } from "#db/schema";
 import type { TableColumn } from "@nuxt/ui";
 import { useDebounceFn } from "@vueuse/core";
 
 const UBadge = resolveComponent("UBadge");
+const CategorySelector = resolveComponent("CategorySelector");
 
 const props = defineProps<{
   accountId: string;
@@ -30,6 +31,16 @@ const {
 const allTransactions = computed<AkahuTransaction[]>(() => {
   return transactionsData.value?.transactions || [];
 });
+
+// Fetch categories
+const { data: categoriesData, refresh: refreshCategories } = await useFetch<{
+  success: boolean;
+  categories: TransactionCategory[];
+}>("/api/categories", {
+  credentials: "include",
+});
+
+const categories = computed(() => categoriesData.value?.categories || []);
 
 // Update loading state
 watch(pending, (isPending) => {
@@ -144,11 +155,23 @@ const columns: TableColumn<AkahuTransaction>[] = [
     },
   },
   {
-    accessorKey: "category",
+    accessorKey: "categoryId",
     header: "Category",
-    size: 150,
+    size: 200,
     cell: ({ row }) => {
-      return row.getValue("category") || "-";
+      const transaction = row.original;
+
+      return h(CategorySelector, {
+        modelValue: transaction.categoryId,
+        categories: categories.value,
+        transactionId: transaction.id,
+        onCreated: async () => {
+          await refreshCategories();
+        },
+        onUpdated: async () => {
+          await refresh();
+        },
+      });
     },
   },
 ];

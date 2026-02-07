@@ -34,6 +34,28 @@ export const akahuAccount = sqliteTable("akahu_account", {
 
 export type AkahuAccount = InferSelectModel<typeof akahuAccount>;
 
+export const transactionCategory = sqliteTable("transaction_category", {
+  id: text("id").primaryKey(), // nanoid()
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+
+  // Category metadata
+  name: text("name").notNull(),
+  color: text("color").default("#64748b"), // Hex color value (default: neutral gray)
+  description: text("description"),
+
+  // Timestamps
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+export type TransactionCategory = InferSelectModel<typeof transactionCategory>;
+
 export const akahuTransaction = sqliteTable("akahu_transaction", {
   id: text("id").primaryKey(), // nanoid()
 
@@ -66,8 +88,13 @@ export const akahuTransaction = sqliteTable("akahu_transaction", {
 
   // Transaction metadata
   type: text("type"), // DEBIT, CREDIT, etc.
-  category: text("category"),
+  category: text("category"), // Akahu's raw category
   merchant: text("merchant"),
+
+  // User-assigned category
+  categoryId: text("category_id").references(() => transactionCategory.id, {
+    onDelete: "set null",
+  }),
 
   // Sync tracking
   createdAt: integer("created_at", { mode: "timestamp" })

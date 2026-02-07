@@ -50,6 +50,20 @@
       "when": 1770006252744,
       "tag": "0006_nebulous_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1770355714980,
+      "tag": "0007_demonic_giant_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1770415636228,
+      "tag": "0008_vengeful_justice",
+      "breakpoints": true
     }
   ]
 }
