@@ -232,56 +232,61 @@ const saveChanges = async () => {
           @edit="handleEdit"
         />
 
-        <!-- Edit Form Section -->
-        <div v-if="editMode" class="border rounded-lg p-6 space-y-4">
-          <h2 class="text-xl font-bold">Edit Category</h2>
-
-          <div class="space-y-4">
-            <!-- Name Input -->
-            <div>
-              <label class="block text-sm font-medium mb-2">Name</label>
-              <UInput
-                v-model="editedCategory.name"
-                placeholder="Category name"
-              />
-            </div>
-
-            <!-- Color Picker -->
-            <div>
-              <label class="block text-sm font-medium mb-2">Color</label>
-              <div class="flex items-center gap-3">
-                <input
-                  v-model="editedCategory.color"
-                  type="color"
-                  class="w-12 h-12 rounded cursor-pointer"
+        <!-- Edit Modal -->
+        <UModal
+          v-model:open="editMode"
+          title="Edit Category"
+          :ui="{ footer: 'justify-end' }"
+        >
+          <template #body>
+            <div class="space-y-4">
+              <!-- Name Input -->
+              <div>
+                <label class="block text-sm font-medium mb-2">Name</label>
+                <UInput
+                  v-model="editedCategory.name"
+                  placeholder="Category name"
                 />
-                <span class="text-sm text-muted">{{
-                  editedCategory.color
-                }}</span>
+              </div>
+
+              <!-- Color Picker -->
+              <div>
+                <label class="block text-sm font-medium mb-2">Color</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    v-model="editedCategory.color"
+                    type="color"
+                    class="w-12 h-12 rounded cursor-pointer"
+                  />
+                  <span class="text-sm text-muted">{{
+                    editedCategory.color
+                  }}</span>
+                </div>
+              </div>
+
+              <!-- Description Textarea -->
+              <div>
+                <label class="block text-sm font-medium mb-2">
+                  Description
+                </label>
+                <UTextarea
+                  v-model="editedCategory.description"
+                  placeholder="Category description (optional)"
+                  rows="3"
+                />
               </div>
             </div>
+          </template>
 
-            <!-- Description Textarea -->
-            <div>
-              <label class="block text-sm font-medium mb-2">Description</label>
-              <UTextarea
-                v-model="editedCategory.description"
-                placeholder="Category description (optional)"
-                rows="3"
-              />
-            </div>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="flex gap-2 justify-end pt-4">
+          <template #footer>
             <UButton variant="outline" color="neutral" @click="cancelEdit">
               Cancel
             </UButton>
             <UButton :loading="saving" @click="saveChanges">
               Save Changes
             </UButton>
-          </div>
-        </div>
+          </template>
+        </UModal>
 
         <!-- Transaction Section -->
         <div class="space-y-4">

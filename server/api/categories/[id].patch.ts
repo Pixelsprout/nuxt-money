@@ -1,7 +1,8 @@
 import { auth } from "#root/lib/auth";
 import { useDrizzle } from "#utils/drizzle";
 import { transactionCategory } from "#db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { H3Error } from "h3";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -57,8 +58,8 @@ export default defineEventHandler(async (event) => {
       .where(
         and(
           eq(transactionCategory.id, categoryId),
-          eq(transactionCategory.userId, session.user.id)
-        )
+          eq(transactionCategory.userId, session.user.id),
+        ),
       );
 
     if (!existingCategory) {

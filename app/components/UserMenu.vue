@@ -9,6 +9,8 @@ const { data: session } = await useFetch<{
   credentials: "include",
 });
 
+const colorMode = useColorMode();
+
 const handleSignOut = async () => {
   await authClient.signOut();
   reloadNuxtApp({
@@ -35,7 +37,30 @@ const items = computed(
       ],
       [
         {
-          type: "separator" as const,
+          label: "Appearance",
+          icon: "i-lucide-sun-moon",
+          children: [
+            {
+              label: "Light",
+              icon: "i-lucide-sun",
+              type: "checkbox" as const,
+              checked: colorMode.value === "light",
+              onSelect(e: Event) {
+                e.preventDefault();
+                colorMode.preference = "light";
+              },
+            },
+            {
+              label: "Dark",
+              icon: "i-lucide-moon",
+              type: "checkbox" as const,
+              checked: colorMode.value === "dark",
+              onSelect(e: Event) {
+                e.preventDefault();
+                colorMode.preference = "dark";
+              },
+            },
+          ],
         },
       ],
       [
