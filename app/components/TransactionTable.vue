@@ -116,6 +116,13 @@ const columns: TableColumn<AkahuTransaction>[] = [
     accessorKey: "description",
     header: "Description",
     size: 300,
+    cell: ({ row }) => {
+      return h(
+        "div",
+        { class: "text-ellipsis overflow-hidden max-w-64" },
+        row.getValue("description"),
+      );
+    },
   },
   {
     accessorKey: "amount",
