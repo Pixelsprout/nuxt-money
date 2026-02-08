@@ -19,13 +19,11 @@
       </template>
     </UDashboardSidebar>
 
-    <UDashboardPanel class="pb-16 sm:pb-0">
-      <slot />
-    </UDashboardPanel>
+    <slot />
 
     <!-- Bottom navigation for mobile (hidden on desktop) -->
     <nav
-      class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-neutral border-t border-default"
+      class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-elevated border-t border-default"
     >
       <UNavigationMenu
         :items="mobileNavigationLinks"
@@ -61,6 +59,11 @@ const navigationLinks = [
       icon: "i-lucide-tags",
       to: "/categories",
     },
+    {
+      label: "Budgets",
+      icon: "i-lucide-pie-chart",
+      to: "/budgets",
+    },
   ],
 ];
 
@@ -80,6 +83,11 @@ const mobileNavigationLinks = [
     label: "Categories",
     icon: "i-lucide-tags",
     to: "/categories",
+  },
+  {
+    label: "Budgets",
+    icon: "i-lucide-pie-chart",
+    to: "/budgets",
   },
 ];
 </script>
