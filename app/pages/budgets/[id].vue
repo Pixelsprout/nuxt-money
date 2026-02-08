@@ -121,7 +121,7 @@ const deleteBudget = async () => {
 </script>
 
 <template>
-  <UDashboardPanel :ui="{ body: 'pb-20 sm:pb-0' }">
+  <UDashboardPanel>
     <template #header>
       <UDashboardNavbar :title="budget?.name || 'Budget'">
         <template #left>

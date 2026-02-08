@@ -6,6 +6,13 @@ checkEnv(env);
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  ui: {
+    dashboardPanel: {
+      ui: {
+        body: "pb-20 sm:pb-0",
+      },
+    },
+  },
   modules: [
     "@nuxt/eslint",
     "@nuxt/ui",

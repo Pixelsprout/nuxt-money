@@ -9,20 +9,14 @@ const handleComplete = (budget: Budget) => {
   navigateTo(`/budgets/${budget.id}`);
 };
 
-const handleCancel = () => {
-  navigateTo("/budgets");
-};
+const handleCancel = () => {};
 </script>
 
 <template>
-  <UDashboardPanel>
+  <UDashboardPanel :ui="{ body: 'pb-20 sm:pb-0' }">
     <UDashboardNavbar title="Create Budget">
       <template #leading>
-        <UButton
-          variant="ghost"
-          icon="i-lucide-arrow-left"
-          to="/budgets"
-        />
+        <UButton variant="ghost" icon="i-lucide-arrow-left" to="/budgets" />
       </template>
     </UDashboardNavbar>
 
