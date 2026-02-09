@@ -235,13 +235,12 @@ const handleCreate = async () => {
         <div>
           <label class="block text-sm font-medium mb-2">Color</label>
           <div class="flex items-center gap-3">
-            <UColorPicker v-model="newCategoryColor" />
-            <UBadge
-              size="sm"
-              :style="{ backgroundColor: newCategoryColor, color: 'white' }"
-            >
-              Preview
-            </UBadge>
+            <input
+              v-model="newCategoryColor"
+              type="color"
+              class="w-12 h-12 rounded cursor-pointer"
+            />
+            <span class="text-sm text-muted">{{ newCategoryColor }}</span>
           </div>
         </div>
       </div>

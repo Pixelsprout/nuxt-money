@@ -10,7 +10,7 @@ const emit = defineEmits<{
 
 const message = computed(() => {
   if (props.daysRemaining > 0) {
-    return `This budget ends in ${props.daysRemaining} days. Roll it over to create a new budget for the next period?`;
+    return `This budget ends in ${props.daysRemaining} day(s). Roll it over to create a new budget for the next period?`;
   }
   return "This budget period has ended. Create a new budget for the next period?";
 });

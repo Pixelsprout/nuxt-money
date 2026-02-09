@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  const { name, period, periodStart, periodEnd } = body;
+  const { name, period, periodStart, periodEnd, status = "ACTIVE" } = body;
 
   // Validate inputs
   if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -30,6 +30,13 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       message: "Period must be MONTHLY, QUARTERLY, or YEARLY",
+    });
+  }
+
+  if (!["DRAFT", "ACTIVE"].includes(status)) {
+    throw createError({
+      statusCode: 400,
+      message: "Status must be DRAFT or ACTIVE",
     });
   }
 
@@ -78,7 +85,7 @@ export default defineEventHandler(async (event) => {
         period,
         periodStart: startDate,
         periodEnd: endDate,
-        status: "ACTIVE",
+        status,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

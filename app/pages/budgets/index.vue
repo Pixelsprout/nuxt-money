@@ -42,16 +42,40 @@ const getStatusColor = (status: string | null) => {
       return "success";
     case "ARCHIVED":
       return "neutral";
+    case "DRAFT":
+      return "warning";
     default:
       return "warning";
   }
+};
+
+const getStatusLabel = (status: string | null) => {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "ACTIVE":
+      return "Active";
+    case "ARCHIVED":
+      return "Archived";
+    default:
+      return status || "Unknown";
+  }
+};
+
+const isDraft = (budget: Budget) => {
+  return budget.status === "DRAFT";
+};
+
+const handleEditClick = (event: Event, budgetId: string) => {
+  event.stopPropagation();
+  navigateTo(`/budgets/${budgetId}/edit`);
 };
 </script>
 
 <template>
   <UDashboardPanel>
     <UDashboardNavbar title="Budgets">
-      <template #actions>
+      <template #right>
         <UButton icon="i-lucide-plus" to="/budgets/create">
           Create Budget
         </UButton>
@@ -79,7 +103,8 @@ const getStatusColor = (status: string | null) => {
           <div class="text-muted">
             <p class="text-lg">No budgets yet</p>
             <p class="text-sm mt-2">
-              Create your first budget to start tracking your income and expenses.
+              Create your first budget to start tracking your income and
+              expenses.
             </p>
           </div>
           <UButton icon="i-lucide-plus" to="/budgets/create">
@@ -101,10 +126,12 @@ const getStatusColor = (status: string | null) => {
             <div class="flex justify-between items-start mb-3">
               <div>
                 <h3 class="font-semibold">{{ budget.name }}</h3>
-                <p class="text-sm text-muted">{{ getPeriodLabel(budget.period) }}</p>
+                <p class="text-sm text-muted">
+                  {{ getPeriodLabel(budget.period) }}
+                </p>
               </div>
               <UBadge :color="getStatusColor(budget.status)" variant="subtle">
-                {{ budget.status }}
+                {{ getStatusLabel(budget.status) }}
               </UBadge>
             </div>
 
@@ -120,7 +147,29 @@ const getStatusColor = (status: string | null) => {
             </div>
 
             <div class="mt-4 pt-3 border-t">
+              <!-- Edit button for drafts, View Details for others -->
+              <div v-if="isDraft(budget)" class="flex gap-2">
+                <UButton
+                  size="sm"
+                  variant="solid"
+                  color="primary"
+                  icon="i-lucide-pencil"
+                  class="flex-1 justify-center"
+                  @click="handleEditClick($event, budget.id)"
+                >
+                  Edit Draft
+                </UButton>
+                <UButton
+                  size="sm"
+                  variant="ghost"
+                  icon="i-lucide-eye"
+                  @click.stop="navigateTo(`/budgets/${budget.id}`)"
+                >
+                  View
+                </UButton>
+              </div>
               <UButton
+                v-else
                 size="sm"
                 variant="ghost"
                 icon="i-lucide-arrow-right"
