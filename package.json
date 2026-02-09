@@ -21,7 +21,8 @@
     "db:migrate": "drizzle-kit migrate --config ./config/drizzle.config.ts",
     "db:migrate:prod": "tsx scripts/migrate-production.ts",
     "db:studio": "drizzle-kit studio --config ./config/drizzle.config.ts",
-    "db:seed:invite": "tsx scripts/seed-invite.ts"
+    "db:seed:invite": "tsx scripts/seed-invite.ts",
+    "db:seed:budget": "tsx scripts/seed-budget.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",

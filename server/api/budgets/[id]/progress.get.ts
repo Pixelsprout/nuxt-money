@@ -52,12 +52,6 @@ export default defineEventHandler(async (event) => {
     }
 
     const currentBudget = budgetResult[0];
-    console.log("[budgets/progress] Found budget:", {
-      id: currentBudget.id,
-      name: currentBudget.name,
-      periodStart: currentBudget.periodStart,
-      periodEnd: currentBudget.periodEnd,
-    });
 
     // Get all allocations for this budget
     const allocations = await db

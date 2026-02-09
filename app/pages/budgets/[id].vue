@@ -61,6 +61,17 @@ const categoryProgress = computed(() => data.value?.categoryProgress || []);
 const income = computed(() => data.value?.income || []);
 const fixedExpenses = computed(() => data.value?.fixedExpenses || []);
 
+const isRolloverModalOpen = ref(false);
+
+const showRolloverBanner = computed(() => {
+  if (!period.value) return false;
+  return period.value.daysRemaining <= 3 || period.value.percentComplete >= 100;
+});
+
+const handleRolloverSuccess = (newBudgetId: string) => {
+  navigateTo(`/budgets/${newBudgetId}`);
+};
+
 const formatCurrency = (cents: number) => {
   return new Intl.NumberFormat("en-NZ", {
     style: "currency",
@@ -178,6 +189,14 @@ const deleteBudget = async () => {
             {{ budget.status }}
           </UBadge>
         </div>
+
+        <!-- Rollover Banner -->
+        <BudgetRolloverBanner
+          v-if="showRolloverBanner"
+          :days-remaining="period!.daysRemaining"
+          :percent-complete="period!.percentComplete"
+          @rollover="isRolloverModalOpen = true"
+        />
 
         <!-- Period Progress -->
         <div class="p-4 bg-muted/50 rounded-lg">
@@ -335,6 +354,15 @@ const deleteBudget = async () => {
             <p v-else class="text-sm text-muted">No fixed expenses</p>
           </div>
         </div>
+
+        <!-- Rollover Modal -->
+        <BudgetRolloverModal
+          v-if="budget"
+          v-model:open="isRolloverModalOpen"
+          :budget-id="budgetId"
+          :budget-name="budget.name"
+          @success="handleRolloverSuccess"
+        />
       </div>
     </template>
   </UDashboardPanel>
