@@ -1,2 +1,5 @@
+[phases.setup]
+nixPkgs = ["nodejs_23"]
+
 [start]
 cmd = "node .output/server/index.mjs"
