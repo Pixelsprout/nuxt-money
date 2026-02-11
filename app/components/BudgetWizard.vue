@@ -46,43 +46,61 @@ const budgetData = reactive({
   periodEnd: new Date(),
 });
 
-// Set default period dates
-const updatePeriodDates = () => {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  let end: Date;
+// Calculate period end date based on start date and period type
+const calculatePeriodEnd = (
+  start: Date,
+  periodType: "MONTHLY" | "QUARTERLY" | "YEARLY",
+) => {
+  const end = new Date(start);
 
-  switch (budgetData.period) {
+  switch (periodType) {
     case "QUARTERLY":
-      end = new Date(start);
       end.setMonth(end.getMonth() + 3);
       end.setDate(end.getDate() - 1);
       break;
     case "YEARLY":
-      end = new Date(start);
       end.setFullYear(end.getFullYear() + 1);
       end.setDate(end.getDate() - 1);
       break;
     case "MONTHLY":
     default:
-      end = new Date(start);
       end.setMonth(end.getMonth() + 1);
       end.setDate(end.getDate() - 1);
   }
 
+  return end;
+};
+
+// Set default period dates
+const updatePeriodDates = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
   budgetData.periodStart = start;
-  budgetData.periodEnd = end;
+  budgetData.periodEnd = calculatePeriodEnd(start, budgetData.period);
 };
 
 // Initialize period dates
 updatePeriodDates();
 
-// Only auto-update dates if not in edit mode (preserve user's custom dates)
+// Watch for period type changes to recalculate end date
 watch(
   () => budgetData.period,
-  () => {
-    if (!isEditMode.value) {
-      updatePeriodDates();
+  (newPeriod) => {
+    if (!isLoadingData.value) {
+      budgetData.periodEnd = calculatePeriodEnd(
+        budgetData.periodStart,
+        newPeriod,
+      );
+    }
+  },
+);
+
+// Watch for period start changes to recalculate end date
+watch(
+  () => budgetData.periodStart,
+  (newStart) => {
+    if (!isLoadingData.value) {
+      budgetData.periodEnd = calculatePeriodEnd(newStart, budgetData.period);
     }
   },
 );
