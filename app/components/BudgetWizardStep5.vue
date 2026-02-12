@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { BudgetIncome, FixedExpense, CategoryAllocation, TransactionCategory } from "#db/schema";
+import type {
+  BudgetIncome,
+  FixedExpense,
+  CategoryAllocation,
+  TransactionCategory,
+} from "#db/schema";
 
 const props = defineProps<{
   budgetData: {
@@ -90,133 +95,167 @@ const surplusStatus = computed(() => {
         </UBadge>
       </div>
 
-      <div class="flex gap-4 text-sm text-muted">
-        <span>{{ formatDate(budgetData.periodStart) }}</span>
-        <span>→</span>
-        <span>{{ formatDate(budgetData.periodEnd) }}</span>
-      </div>
+      <ClientOnly>
+        <div class="flex gap-4 text-sm text-muted">
+          <span>{{ formatDate(budgetData.periodStart) }}</span>
+          <span>→</span>
+          <span>{{ formatDate(budgetData.periodEnd) }}</span>
+        </div>
+      </ClientOnly>
     </div>
 
     <!-- Financial Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Income -->
-      <div class="p-4 border rounded-lg">
-        <div class="flex justify-between items-center mb-3">
-          <h4 class="font-medium">Income</h4>
-          <span class="text-lg font-bold text-success">
-            {{ formatCurrency(totalIncome) }}
-          </span>
-        </div>
-        <div v-if="incomeItems.length > 0" class="space-y-2">
-          <div
-            v-for="item in incomeItems"
-            :key="item.id"
-            class="flex justify-between text-sm"
-          >
-            <span class="text-muted">{{ item.name }}</span>
-            <span>{{ formatCurrency(item.amount) }}/{{ item.frequency.toLowerCase() }}</span>
+    <ClientOnly>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Income -->
+        <div class="p-4 border rounded-lg">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-medium">Income</h4>
+            <span class="text-lg font-bold text-success">
+              {{ formatCurrency(totalIncome) }}
+            </span>
           </div>
+          <div v-if="incomeItems.length > 0" class="space-y-2">
+            <div
+              v-for="item in incomeItems"
+              :key="item.id"
+              class="flex justify-between text-sm"
+            >
+              <span class="text-muted">{{ item.name }}</span>
+              <span
+                >{{ formatCurrency(item.amount) }}/{{
+                  item.frequency.toLowerCase()
+                }}</span
+              >
+            </div>
+          </div>
+          <p v-else class="text-sm text-muted">No income sources added</p>
         </div>
-        <p v-else class="text-sm text-muted">No income sources added</p>
-      </div>
 
-      <!-- Fixed Expenses -->
-      <div class="p-4 border rounded-lg">
-        <div class="flex justify-between items-center mb-3">
-          <h4 class="font-medium">Fixed Expenses</h4>
-          <span class="text-lg font-bold text-error">
-            {{ formatCurrency(totalFixedExpenses) }}
-          </span>
-        </div>
-        <div v-if="fixedExpenseItems.length > 0" class="space-y-2">
-          <div
-            v-for="item in fixedExpenseItems"
-            :key="item.id"
-            class="flex justify-between text-sm"
-          >
-            <span class="text-muted">{{ item.name }}</span>
-            <span>{{ formatCurrency(item.amount) }}/{{ item.frequency.toLowerCase() }}</span>
+        <!-- Fixed Expenses -->
+        <div class="p-4 border rounded-lg">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-medium">Fixed Expenses</h4>
+            <span class="text-lg font-bold text-error">
+              {{ formatCurrency(totalFixedExpenses) }}
+            </span>
           </div>
+          <div v-if="fixedExpenseItems.length > 0" class="space-y-2">
+            <div
+              v-for="item in fixedExpenseItems"
+              :key="item.id"
+              class="flex justify-between text-sm"
+            >
+              <span class="text-muted">{{ item.name }}</span>
+              <span
+                >{{ formatCurrency(item.amount) }}/{{
+                  item.frequency.toLowerCase()
+                }}</span
+              >
+            </div>
+          </div>
+          <p v-else class="text-sm text-muted">No fixed expenses added</p>
         </div>
-        <p v-else class="text-sm text-muted">No fixed expenses added</p>
       </div>
-    </div>
+    </ClientOnly>
 
     <!-- Category Allocations -->
-    <div class="p-4 border rounded-lg">
-      <div class="flex justify-between items-center mb-3">
-        <h4 class="font-medium">Category Allocations</h4>
-        <span class="text-lg font-bold">
-          {{ formatCurrency(totalAllocations) }}
-        </span>
-      </div>
-      <div v-if="allocationItems.length > 0" class="space-y-2">
-        <div
-          v-for="item in allocationItems"
-          :key="item.id"
-          class="flex justify-between text-sm"
-        >
-          <div class="flex items-center gap-2">
-            <span
-              class="w-2 h-2 rounded-full"
-              :style="{ backgroundColor: getCategoryColor(item.categoryId) }"
-            ></span>
-            <span class="text-muted">{{ getCategoryName(item.categoryId) }}</span>
-          </div>
-          <span>{{ formatCurrency(item.allocatedAmount) }}</span>
+    <ClientOnly>
+      <div class="p-4 border rounded-lg">
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="font-medium">Category Allocations</h4>
+          <span class="text-lg font-bold">
+            {{ formatCurrency(totalAllocations) }}
+          </span>
         </div>
+        <div v-if="allocationItems.length > 0" class="space-y-2">
+          <div
+            v-for="item in allocationItems"
+            :key="item.id"
+            class="flex justify-between text-sm"
+          >
+            <div class="flex items-center gap-2">
+              <span
+                class="w-2 h-2 rounded-full"
+                :style="{ backgroundColor: getCategoryColor(item.categoryId) }"
+              ></span>
+              <span class="text-muted">{{
+                getCategoryName(item.categoryId)
+              }}</span>
+            </div>
+            <span>{{ formatCurrency(item.allocatedAmount) }}</span>
+          </div>
+        </div>
+        <p v-else class="text-sm text-muted">No category allocations added</p>
       </div>
-      <p v-else class="text-sm text-muted">No category allocations added</p>
-    </div>
+    </ClientOnly>
 
     <!-- Surplus/Deficit Summary -->
-    <div
-      class="p-6 rounded-lg"
-      :class="{
-        'bg-success/10 border border-success/20': surplusStatus === 'surplus',
-        'bg-error/10 border border-error/20': surplusStatus === 'deficit',
-        'bg-muted/50': surplusStatus === 'balanced',
-      }"
-    >
-      <div class="flex justify-between items-center">
-        <div>
-          <h4 class="font-semibold">
-            {{ surplusStatus === 'surplus' ? 'Surplus' : surplusStatus === 'deficit' ? 'Deficit' : 'Balanced' }}
-          </h4>
-          <p class="text-sm text-muted">
-            Income - Fixed Expenses - Allocations
-          </p>
+    <ClientOnly>
+      <div
+        class="p-6 rounded-lg"
+        :class="{
+          'bg-success/10 border border-success/20': surplusStatus === 'surplus',
+          'bg-error/10 border border-error/20': surplusStatus === 'deficit',
+          'bg-muted/50': surplusStatus === 'balanced',
+        }"
+      >
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 class="font-semibold">
+              {{
+                surplusStatus === "surplus"
+                  ? "Surplus"
+                  : surplusStatus === "deficit"
+                    ? "Deficit"
+                    : "Balanced"
+              }}
+            </h4>
+            <p class="text-sm text-muted">
+              Income - Fixed Expenses - Allocations
+            </p>
+          </div>
+          <span
+            class="text-2xl font-bold"
+            :class="{
+              'text-success': surplusStatus === 'surplus',
+              'text-error': surplusStatus === 'deficit',
+            }"
+          >
+            {{ formatCurrency(surplus) }}
+          </span>
         </div>
-        <span
-          class="text-2xl font-bold"
-          :class="{
-            'text-success': surplusStatus === 'surplus',
-            'text-error': surplusStatus === 'deficit',
-          }"
+
+        <div
+          class="mt-4 pt-4 border-t border-current/10 grid grid-cols-3 gap-4 text-sm"
         >
-          {{ formatCurrency(surplus) }}
-        </span>
+          <div>
+            <p class="text-muted">Total Income</p>
+            <p class="font-medium text-success">
+              {{ formatCurrency(totalIncome) }}
+            </p>
+          </div>
+          <div>
+            <p class="text-muted">Total Expenses</p>
+            <p class="font-medium text-error">
+              {{ formatCurrency(totalFixedExpenses + totalAllocations) }}
+            </p>
+          </div>
+          <div>
+            <p class="text-muted">Remaining</p>
+            <p class="font-medium">{{ formatCurrency(surplus) }}</p>
+          </div>
+        </div>
       </div>
+    </ClientOnly>
 
-      <div class="mt-4 pt-4 border-t border-current/10 grid grid-cols-3 gap-4 text-sm">
-        <div>
-          <p class="text-muted">Total Income</p>
-          <p class="font-medium text-success">{{ formatCurrency(totalIncome) }}</p>
-        </div>
-        <div>
-          <p class="text-muted">Total Expenses</p>
-          <p class="font-medium text-error">{{ formatCurrency(totalFixedExpenses + totalAllocations) }}</p>
-        </div>
-        <div>
-          <p class="text-muted">Remaining</p>
-          <p class="font-medium">{{ formatCurrency(surplus) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="surplusStatus === 'deficit'" class="p-4 bg-warning/10 rounded-lg">
+    <div
+      v-if="surplusStatus === 'deficit'"
+      class="p-4 bg-warning/10 rounded-lg"
+    >
       <p class="text-sm text-warning">
-        <strong>Warning:</strong> Your expenses exceed your income. Consider adjusting your budget allocations.
+        <strong>Warning:</strong> Your expenses exceed your income. Consider
+        adjusting your budget allocations.
       </p>
     </div>
   </div>

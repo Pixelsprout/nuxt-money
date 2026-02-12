@@ -28,22 +28,23 @@ const isDirty = ref(false);
 const draftBudgetId = ref<string | null>(null);
 const allowNavigation = ref(false);
 const showUnsavedChangesDialog = ref(false);
-const isLoadingData = ref(false);
+const budgetStatus = ref<string | null>(null);
 
 // Edit mode detection
 const isEditMode = computed(() => !!props.budgetId);
+const isEditingDraft = computed(() => budgetStatus.value === "DRAFT");
 
 // Deletion tracking for edit mode
 const deletedIncomeIds = ref<string[]>([]);
 const deletedExpenseIds = ref<string[]>([]);
 const deletedAllocationIds = ref<string[]>([]);
 
-// Budget state
+// Budget state - initialize with stable dates to avoid hydration mismatch
 const budgetData = reactive({
   name: "",
   period: "MONTHLY" as "MONTHLY" | "QUARTERLY" | "YEARLY",
-  periodStart: new Date(),
-  periodEnd: new Date(),
+  periodStart: new Date(0), // Will be set in updatePeriodDates or from fetched data
+  periodEnd: new Date(0), // Will be set in updatePeriodDates or from fetched data
 });
 
 // Calculate period end date based on start date and period type
@@ -78,9 +79,6 @@ const updatePeriodDates = () => {
   budgetData.periodStart = start;
   budgetData.periodEnd = calculatePeriodEnd(start, budgetData.period);
 };
-
-// Initialize period dates
-updatePeriodDates();
 
 // Watch for period type changes to recalculate end date
 watch(
@@ -119,7 +117,8 @@ watch(
     allocationItems: allocationItems.value,
   }),
   () => {
-    if (!isLoadingData.value) {
+    // Don't mark as dirty if still loading data or if budgetDataResponse hasn't loaded yet
+    if (!isLoadingData.value && (!props.budgetId || budgetDataResponse.value)) {
       isDirty.value = true;
     }
   },
@@ -184,18 +183,38 @@ const trackPreviousItems = () => {
 };
 
 // Load existing budget data in edit mode
-const loadBudgetData = async () => {
-  if (!props.budgetId) return;
+const {
+  data: budgetDataResponse,
+  pending: isLoadingData,
+  error: budgetLoadError,
+} = await useFetch<{
+  budget: Budget;
+  income: BudgetIncome[];
+  fixedExpenses: FixedExpense[];
+  allocations: CategoryAllocation[];
+}>(() => (props.budgetId ? `/api/budgets/${props.budgetId}` : null), {
+  key: `budget-${props.budgetId}`,
+  lazy: false,
+  immediate: !!props.budgetId,
+});
 
-  isLoadingData.value = true;
+// Handle fetch errors
+watch(budgetLoadError, (error) => {
+  if (error && import.meta.client) {
+    console.error("Error loading budget data:", error);
+    toast.add({
+      title: "Error",
+      description: error.data?.message || "Failed to load budget data",
+      color: "error",
+    });
+  }
+});
 
-  try {
-    const response = await $fetch<{
-      budget: Budget;
-      income: BudgetIncome[];
-      fixedExpenses: FixedExpense[];
-      allocations: CategoryAllocation[];
-    }>(`/api/budgets/${props.budgetId}`);
+// Populate data when loaded
+watch(
+  budgetDataResponse,
+  (response) => {
+    if (!response) return;
 
     // Populate budget metadata
     budgetData.name = response.budget.name;
@@ -205,6 +224,7 @@ const loadBudgetData = async () => {
       | "YEARLY";
     budgetData.periodStart = new Date(response.budget.periodStart);
     budgetData.periodEnd = new Date(response.budget.periodEnd);
+    budgetStatus.value = response.budget.status;
 
     // Populate items with _id tracking
     incomeItems.value = response.income.map((item) => ({
@@ -227,17 +247,9 @@ const loadBudgetData = async () => {
 
     // Mark as not dirty after loading
     isDirty.value = false;
-  } catch (error: any) {
-    console.error("Error loading budget data:", error);
-    toast.add({
-      title: "Error",
-      description: error.data?.message || "Failed to load budget data",
-      color: "error",
-    });
-  } finally {
-    isLoadingData.value = false;
-  }
-};
+  },
+  { immediate: true },
+);
 
 // Calculated totals
 const totalIncome = computed(() =>
@@ -544,9 +556,9 @@ const handleSubmit = () => {
 };
 
 // Save draft
-const saveDraft = async () => {
+const saveDraft = async (navigateAway: boolean = true) => {
   try {
-    let budgetId = draftBudgetId.value;
+    let budgetId = draftBudgetId.value || props.budgetId;
 
     if (budgetId) {
       // Update existing draft
@@ -577,6 +589,7 @@ const saveDraft = async () => {
       );
       budgetId = budget.id;
       draftBudgetId.value = budget.id;
+      budgetStatus.value = "DRAFT";
     }
 
     // Save income items
@@ -690,7 +703,6 @@ const saveDraft = async () => {
     }
 
     isDirty.value = false;
-    allowNavigation.value = true;
 
     toast.add({
       title: "Draft Saved",
@@ -698,8 +710,11 @@ const saveDraft = async () => {
       color: "success",
     });
 
-    // Navigate to budgets list
-    navigateTo("/budgets");
+    // Navigate to budgets list if requested
+    if (navigateAway) {
+      allowNavigation.value = true;
+      navigateTo("/budgets");
+    }
   } catch (error: any) {
     console.error("Error saving draft:", error);
     throw error;
@@ -722,9 +737,24 @@ const handleCancel = () => {
   }
 };
 
+const handleSaveDraft = async () => {
+  try {
+    // When editing a draft, stay on page; otherwise navigate away
+    const shouldNavigate = !isEditingDraft.value;
+    await saveDraft(shouldNavigate);
+  } catch (error: any) {
+    console.error("Failed to save draft:", error);
+    toast.add({
+      title: "Error",
+      description: error.data?.message || "Failed to save draft",
+      color: "error",
+    });
+  }
+};
+
 const handleSaveDraftAndNavigate = async () => {
   try {
-    await saveDraft();
+    await saveDraft(true);
     showUnsavedChangesDialog.value = false;
   } catch (error: any) {
     console.error("Failed to save draft:", error);
@@ -738,12 +768,13 @@ const handleDiscardChanges = () => {
   emit("cancel");
 };
 
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener("beforeunload", handleBeforeUnload);
 
-  // Load data if in edit mode
-  if (isEditMode.value) {
-    await loadBudgetData();
+  // Initialize period dates for create mode (not edit mode)
+  // This runs client-side only to avoid hydration mismatches
+  if (!isEditMode.value) {
+    updatePeriodDates();
   }
 
   // Track deletions for edit mode
@@ -844,6 +875,16 @@ onBeforeUnmount(() => {
           </UButton>
 
           <UButton
+            v-if="!isEditMode || isEditingDraft"
+            variant="outline"
+            icon="i-lucide-save"
+            :disabled="!budgetData.name.trim()"
+            @click="handleSaveDraft"
+          >
+            Save as Draft
+          </UButton>
+
+          <UButton
             v-if="currentStep < 4"
             :disabled="!canGoNext"
             icon="i-lucide-arrow-right"
@@ -856,20 +897,34 @@ onBeforeUnmount(() => {
           <UButton
             v-else
             :loading="isSubmitting"
-            :icon="isEditMode ? 'i-lucide-rocket' : 'i-lucide-check'"
+            :icon="
+              isEditMode && !isEditingDraft
+                ? 'i-lucide-save'
+                : isEditMode
+                  ? 'i-lucide-rocket'
+                  : 'i-lucide-check'
+            "
             color="success"
             @click="handleSubmit"
           >
-            {{ isEditMode ? "Publish Budget" : "Create Budget" }}
+            {{
+              isEditMode && !isEditingDraft
+                ? "Save Changes"
+                : isEditMode
+                  ? "Publish Budget"
+                  : "Create Budget"
+            }}
           </UButton>
         </div>
       </div>
     </template>
 
-    <UnsavedChangesConfirmationDialog
-      v-model:open="showUnsavedChangesDialog"
-      @save-draft="handleSaveDraftAndNavigate"
-      @discard="handleDiscardChanges"
-    />
+    <ClientOnly>
+      <UnsavedChangesConfirmationDialog
+        v-model:open="showUnsavedChangesDialog"
+        @save-draft="handleSaveDraftAndNavigate"
+        @discard="handleDiscardChanges"
+      />
+    </ClientOnly>
   </div>
 </template>

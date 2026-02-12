@@ -15,13 +15,21 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const budgetId = getRouterParam(event, "id");
-  const allocationId = getRouterParam(event, "id");
+  // Get route segments to extract both IDs
+  const path = event.path || event.node.req.url || "";
+  const segments = path.split("/").filter(Boolean);
 
-  if (!allocationId) {
+  // Path structure: api/budgets/{budgetId}/allocations/{allocationId}
+  const budgetIdIndex = segments.indexOf("budgets") + 1;
+  const allocationIdIndex = segments.indexOf("allocations") + 1;
+
+  const budgetId = segments[budgetIdIndex];
+  const allocationId = segments[allocationIdIndex];
+
+  if (!allocationId || !budgetId) {
     throw createError({
       statusCode: 400,
-      message: "Allocation ID is required",
+      message: "Budget ID and Allocation ID are required",
     });
   }
 
@@ -51,8 +59,8 @@ export default defineEventHandler(async (event) => {
       .where(
         and(
           eq(categoryAllocation.id, allocationId),
-          eq(categoryAllocation.budgetId, budgetId!)
-        )
+          eq(categoryAllocation.budgetId, budgetId!),
+        ),
       );
 
     if (existingAllocation.length === 0) {
