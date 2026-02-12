@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { BudgetIncome, AkahuTransaction } from "#db/schema";
-import { useMediaQuery } from "@vueuse/core";
 
 const props = defineProps<{
   income: BudgetIncome;
@@ -13,7 +12,7 @@ const emit = defineEmits<{
   tagged: [income: BudgetIncome];
 }>();
 
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 const searchTerm = ref("");
 const selectedTransaction = ref<AkahuTransaction | null>(null);

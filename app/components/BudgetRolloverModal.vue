@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+import { createReusableTemplate } from "@vueuse/core";
 
 const [DefineRolloverFormTemplate, ReuseRolloverFormTemplate] =
   createReusableTemplate();
@@ -13,7 +13,7 @@ const emit = defineEmits<{
   success: [newBudgetId: string];
 }>();
 
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 const open = defineModel<boolean>("open", { default: false });
 
 const toast = useToast();
@@ -130,7 +130,10 @@ const rollOverBudget = async () => {
       </p>
 
       <!-- Loading State -->
-      <div v-if="loading && copiedItems === null" class="text-center py-6 text-muted">
+      <div
+        v-if="loading && copiedItems === null"
+        class="text-center py-6 text-muted"
+      >
         Loading budget details...
       </div>
 
@@ -158,11 +161,7 @@ const rollOverBudget = async () => {
   </DefineRolloverFormTemplate>
 
   <!-- Desktop: Modal -->
-  <UModal
-    v-if="isDesktop"
-    v-model:open="open"
-    title="Roll Over Budget"
-  >
+  <UModal v-if="isDesktop" v-model:open="open" title="Roll Over Budget">
     <template #body>
       <ReuseRolloverFormTemplate />
     </template>
@@ -180,11 +179,7 @@ const rollOverBudget = async () => {
   </UModal>
 
   <!-- Mobile: Drawer -->
-  <UDrawer
-    v-else
-    v-model:open="open"
-    title="Roll Over Budget"
-  >
+  <UDrawer v-else v-model:open="open" title="Roll Over Budget">
     <template #body>
       <ReuseRolloverFormTemplate />
     </template>
@@ -198,7 +193,11 @@ const rollOverBudget = async () => {
       >
         Cancel
       </UButton>
-      <UButton :loading="loading" @click="rollOverBudget" class="w-full justify-center">
+      <UButton
+        :loading="loading"
+        @click="rollOverBudget"
+        class="w-full justify-center"
+      >
         Roll Over
       </UButton>
     </template>

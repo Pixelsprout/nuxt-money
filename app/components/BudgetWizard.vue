@@ -22,7 +22,13 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
-const currentStep = ref(0);
+const route = useRoute();
+const router = useRouter();
+
+// Initialize currentStep from URL query parameter, default to 0
+const initialStep = parseInt(route.query.step as string) || 0;
+const currentStep = ref(Math.max(0, Math.min(initialStep, 4))); // Clamp between 0-4
+
 const isSubmitting = ref(false);
 const isDirty = ref(false);
 const draftBudgetId = ref<string | null>(null);
@@ -250,6 +256,16 @@ watch(
   },
   { immediate: true },
 );
+
+// Watch currentStep and update URL query parameter
+watch(currentStep, (newStep) => {
+  router.replace({
+    query: {
+      ...route.query,
+      step: newStep.toString(),
+    },
+  });
+});
 
 // Calculated totals
 const totalIncome = computed(() =>

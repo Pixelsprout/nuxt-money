@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
-
-const [DefineAccountListTemplate, ReuseAccountListTemplate] =
-  createReusableTemplate();
-const isDesktop = useMediaQuery("(min-width: 768px)");
-
 const open = defineModel<boolean>("open", { default: false });
 
 const emit = defineEmits<{
@@ -98,68 +92,61 @@ const formatCurrency = (balance: any) => {
 </script>
 
 <template>
-  <!-- Reusable template for modal/drawer content -->
-  <DefineAccountListTemplate>
-    <div class="space-y-4">
-      <div v-if="error" class="text-sm text-error">
-        {{ error }}
-      </div>
-
-      <!-- Loading State -->
-      <div
-        v-if="loading && availableAccounts.length === 0"
-        class="text-center py-8 text-muted"
-      >
-        Loading accounts...
-      </div>
-
-      <!-- Account Selection -->
-      <div v-else class="space-y-3 max-h-96 overflow-y-auto">
-        <div
-          v-for="account in availableAccounts"
-          :key="account._id"
-          class="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer"
-          @click="toggleAccount(account._id)"
-        >
-          <div class="flex items-start gap-3">
-            <UCheckbox
-              :model-value="selectedAccountIds.includes(account._id)"
-              @update:model-value="toggleAccount(account._id)"
-            />
-            <div class="flex-1">
-              <div class="font-medium">{{ account.name }}</div>
-              <div class="text-sm text-muted">
-                {{ account.formatted_account }}
-              </div>
-              <div class="text-sm font-semibold mt-1">
-                {{ formatCurrency(account.balance) }}
-              </div>
-            </div>
-            <UBadge size="sm" color="neutral">
-              {{ account.type }}
-            </UBadge>
-          </div>
-        </div>
-
-        <div
-          v-if="!loading && availableAccounts.length === 0"
-          class="text-center py-8 text-muted"
-        >
-          No accounts found
-        </div>
-      </div>
-    </div>
-  </DefineAccountListTemplate>
-
-  <!-- Desktop: Modal -->
-  <UModal
-    v-if="isDesktop"
+  <ResponsiveModal
     v-model:open="open"
     title="Select Accounts to Sync"
     description="Choose the Akahu accounts you want to sync"
   >
     <template #body>
-      <ReuseAccountListTemplate />
+      <div class="space-y-4">
+        <div v-if="error" class="text-sm text-error">
+          {{ error }}
+        </div>
+
+        <!-- Loading State -->
+        <div
+          v-if="loading && availableAccounts.length === 0"
+          class="text-center py-8 text-muted"
+        >
+          Loading accounts...
+        </div>
+
+        <!-- Account Selection -->
+        <div v-else class="space-y-3 max-h-96 overflow-y-auto">
+          <div
+            v-for="account in availableAccounts"
+            :key="account._id"
+            class="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer"
+            @click="toggleAccount(account._id)"
+          >
+            <div class="flex items-start gap-3">
+              <UCheckbox
+                :model-value="selectedAccountIds.includes(account._id)"
+                @update:model-value="toggleAccount(account._id)"
+              />
+              <div class="flex-1">
+                <div class="font-medium">{{ account.name }}</div>
+                <div class="text-sm text-muted">
+                  {{ account.formatted_account }}
+                </div>
+                <div class="text-sm font-semibold mt-1">
+                  {{ formatCurrency(account.balance) }}
+                </div>
+              </div>
+              <UBadge size="sm" color="neutral">
+                {{ account.type }}
+              </UBadge>
+            </div>
+          </div>
+
+          <div
+            v-if="!loading && availableAccounts.length === 0"
+            class="text-center py-8 text-muted"
+          >
+            No accounts found
+          </div>
+        </div>
+      </div>
     </template>
 
     <template #footer>
@@ -176,36 +163,5 @@ const formatCurrency = (balance: any) => {
         </UButton>
       </div>
     </template>
-  </UModal>
-
-  <!-- Mobile: Drawer -->
-  <UDrawer
-    v-else
-    v-model:open="open"
-    title="Select Accounts to Sync"
-    description="Choose the Akahu accounts you want to sync"
-  >
-    <template #body>
-      <ReuseAccountListTemplate />
-    </template>
-
-    <template #footer>
-      <UButton
-        color="neutral"
-        variant="outline"
-        @click="open = false"
-        class="justify-center"
-      >
-        Cancel
-      </UButton>
-      <UButton
-        :loading="loading"
-        :disabled="selectedAccountIds.length === 0"
-        @click="syncAccounts"
-        class="justify-center"
-      >
-        Sync Selected ({{ selectedAccountIds.length }})
-      </UButton>
-    </template>
-  </UDrawer>
+  </ResponsiveModal>
 </template>

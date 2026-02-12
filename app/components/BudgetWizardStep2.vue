@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { BudgetIncome } from "#db/schema";
-import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+import { createReusableTemplate } from "@vueuse/core";
 import { nanoid } from "nanoid";
 
 const [DefineFormTemplate, ReuseFormTemplate] = createReusableTemplate();
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 const modelValue = defineModel<BudgetIncome[]>({ required: true });
 

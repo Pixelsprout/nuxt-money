@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { FixedExpense, AkahuTransaction } from "#db/schema";
-import { useMediaQuery } from "@vueuse/core";
 
 const props = defineProps<{
   expense: FixedExpense;
@@ -13,7 +12,7 @@ const emit = defineEmits<{
   tagged: [expense: FixedExpense];
 }>();
 
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 const searchTerm = ref("");
 const selectedTransaction = ref<AkahuTransaction | null>(null);
@@ -42,9 +41,12 @@ const { data: taggedData, refresh: refreshTagged } = await useFetch<{
     id: string;
     transaction: AkahuTransaction;
   }>;
-}>(`/api/budgets/${props.budgetId}/fixed-expenses/${props.expense.id}/transactions`, {
-  immediate: false,
-});
+}>(
+  `/api/budgets/${props.budgetId}/fixed-expenses/${props.expense.id}/transactions`,
+  {
+    immediate: false,
+  },
+);
 
 // Watch open state to fetch data when modal opens
 watch(
@@ -237,7 +239,10 @@ function handleClose() {
                       formatCurrency((transaction.amount as any)?.value || 0)
                     }}
                   </span>
-                  <span v-if="transaction.merchant" class="text-xs text-gray-400">
+                  <span
+                    v-if="transaction.merchant"
+                    class="text-xs text-gray-400"
+                  >
                     {{ transaction.merchant }}
                   </span>
                 </div>

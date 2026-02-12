@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { TransactionCategory } from "#db/schema";
-import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+import { createReusableTemplate } from "@vueuse/core";
 
 const [DefineCreateCategoryTemplate, ReuseCreateCategoryTemplate] =
   createReusableTemplate();
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 const props = defineProps<{
   modelValue: string | null;

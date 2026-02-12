@@ -2,13 +2,13 @@
 import type { TransactionCategory, AkahuTransaction } from "#db/schema";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
-import { createReusableTemplate, useMediaQuery } from "@vueuse/core";
+import { createReusableTemplate } from "@vueuse/core";
 
 const UBadge = resolveComponent("UBadge");
 
 const [DefineEditFormTemplate, ReuseEditFormTemplate] =
   createReusableTemplate();
-const isDesktop = useMediaQuery("(min-width: 768px)");
+const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 definePageMeta({ layout: "default" });
 
