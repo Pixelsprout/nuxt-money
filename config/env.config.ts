@@ -1,6 +1,9 @@
 export function checkEnv(env: NodeJS.ProcessEnv) {
-  // Skip env checks during typecheck
-  if (process.argv.some((arg) => arg.includes("typecheck"))) {
+  // Skip env checks during typecheck or build
+  if (
+    process.argv.some((arg) => arg.includes("typecheck")) ||
+    process.argv.some((arg) => arg.includes("prepare"))
+  ) {
     return;
   }
 
@@ -20,11 +23,15 @@ export function checkEnv(env: NodeJS.ProcessEnv) {
     );
   }
 
-  // Validate DATABASE_URL format
+  // Validate DATABASE_URL format (allow both postgres:// and postgresql://)
   const databaseUrl = env.DATABASE_URL;
-  if (databaseUrl && !databaseUrl.startsWith("postgresql://")) {
+  if (
+    databaseUrl &&
+    !databaseUrl.startsWith("postgres://") &&
+    !databaseUrl.startsWith("postgresql://")
+  ) {
     throw new Error(
-      "DATABASE_URL must be a PostgreSQL connection string (postgresql://...)",
+      "DATABASE_URL must be a PostgreSQL connection string (postgresql:// or postgres://...)",
     );
   }
 }
