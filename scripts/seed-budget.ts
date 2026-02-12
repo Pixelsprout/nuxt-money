@@ -8,15 +8,15 @@
  *   pnpm db:seed:budget --user-id=user123 --env=staging
  *
  * Environments:
- *   --env=dev (default) - Uses local database (file:local.db)
+ *   --env=dev (default) - Uses local PostgreSQL database
  *   --env=prod - Uses production database from .env.production
  *   --env=staging - Uses staging database from .env.staging
  *
  * You can override with --db_url if needed
  */
 
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   budget,
   budgetIncome,
@@ -76,9 +76,7 @@ async function main() {
     console.error("\nUsage:");
     console.error("  pnpm db:seed:budget --user-id=user123");
     console.error("  pnpm db:seed:budget --user-id=user123 --env=prod");
-    console.error(
-      "  pnpm db:seed:budget --user-id=user123 --env=staging",
-    );
+    console.error("  pnpm db:seed:budget --user-id=user123 --env=staging");
     console.error("\nEnvironments:");
     console.error("  --env=dev (default) - Local database");
     console.error("  --env=prod - Production database");
@@ -92,45 +90,27 @@ async function main() {
   if (args.db_url) {
     // Explicit --db_url overrides everything
     databaseUrl = args.db_url;
-  } else if (environment === "dev") {
-    // Default to local file for dev
-    databaseUrl = "file:local.db";
   } else {
-    // Load from environment variables for prod/staging
-    databaseUrl = env.TURSO_DATABASE_URL || env.NUXT_TURSO_DATABASE_URL;
+    // Load from environment variables
+    databaseUrl = env.DATABASE_URL;
   }
 
   if (!databaseUrl) {
-    console.error("❌ Error: Database URL is required");
+    console.error("❌ Error: DATABASE_URL is required");
     console.error(
-      `\nFor ${environment} environment, set TURSO_DATABASE_URL in ${envFile}`,
+      `\nFor ${environment} environment, set DATABASE_URL in ${envFile}`,
     );
-    console.error("Or provide it via: --db_url=libsql://your-db.turso.io");
-    process.exit(1);
-  }
-
-  // Get auth token from environment (required for remote databases)
-  const authToken = env.TURSO_AUTH_TOKEN || env.NUXT_TURSO_AUTH_TOKEN;
-  const isLocalFile = databaseUrl.startsWith("file:");
-
-  if (!isLocalFile && !authToken) {
-    console.error(
-      "❌ Error: TURSO_AUTH_TOKEN is required for remote databases",
-    );
-    console.error(`Set it in ${envFile} or as an environment variable`);
+    console.error("Or provide it via: --db_url=postgresql://...");
     process.exit(1);
   }
 
   console.log(`🌍 Environment: ${environment}`);
   console.log(`🔄 Connecting to database...`);
-  console.log(`📍 Database: ${databaseUrl}`);
+  console.log(`📍 Database: ${databaseUrl.replace(/:[^:]*@/, ":****@")}`);
   console.log(`👤 User ID: ${userId}`);
 
   // Create client
-  const client = createClient({
-    url: databaseUrl,
-    authToken: authToken,
-  });
+  const client = postgres(databaseUrl, { max: 1 });
 
   const db = drizzle(client);
 
@@ -221,9 +201,7 @@ async function main() {
 
     console.log(`✅ Created ${createdExpenses.length} fixed expenses`);
     createdExpenses.forEach((expense) => {
-      console.log(
-        `  • ${expense.name}: $${(expense.amount / 100).toFixed(2)}`,
-      );
+      console.log(`  • ${expense.name}: $${(expense.amount / 100).toFixed(2)}`);
     });
 
     // Query for first category and add allocation
@@ -273,7 +251,7 @@ async function main() {
     console.error("❌ Failed to create budget:", error.message);
     process.exit(1);
   } finally {
-    client.close();
+    await client.end();
   }
 }
 

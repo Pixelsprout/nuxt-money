@@ -29,9 +29,8 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    turso: {
-      databaseUrl: process.env.TURSO_DATABASE_URL,
-      authToken: import.meta.env.PROD ? process.env.TURSO_AUTH_TOKEN : "",
+    database: {
+      url: process.env.DATABASE_URL,
     },
     AKAHU_APP_TOKEN: process.env.AKAHU_APP_TOKEN,
     AKAHU_USER_TOKEN: process.env.AKAHU_USER_TOKEN,

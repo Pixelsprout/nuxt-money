@@ -2,16 +2,15 @@ import { config } from "dotenv";
 config();
 
 import { betterAuth } from "better-auth";
-import { createClient } from "@libsql/client";
-import { LibsqlDialect } from "@libsql/kysely-libsql";
+import { PostgresDialect } from "kysely";
 import { Kysely } from "kysely";
+import { Pool } from "pg";
 
 export const auth = betterAuth({
   database: new Kysely({
-    dialect: new LibsqlDialect({
-      client: createClient({
-        url: process.env.TURSO_DATABASE_URL!,
-        authToken: process.env.TURSO_AUTH_TOKEN!,
+    dialect: new PostgresDialect({
+      pool: new Pool({
+        connectionString: process.env.DATABASE_URL,
       }),
     }),
   }),

@@ -5,7 +5,6 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
-    "dev:db": "turso dev --db-file local.db",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
@@ -27,8 +26,6 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",
     "@iconify-json/simple-icons": "^1.2.63",
-    "@libsql/client": "^0.17.0",
-    "@libsql/kysely-libsql": "^0.4.1",
     "@nuxt/hints": "1.0.0-alpha.5",
     "@nuxt/image": "2.0.0",
     "@nuxt/test-utils": "3.23.0",
@@ -38,7 +35,9 @@
     "drizzle-orm": "^0.45.1",
     "kysely": "^0.28.9",
     "nanoid": "^5.1.6",
-    "nuxt": "^4.2.2"
+    "nuxt": "^4.2.2",
+    "pg": "^8.14.0",
+    "postgres": "^3.4.5"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",

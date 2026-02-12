@@ -6,14 +6,14 @@
  *   npm run db:migrate:prod
  *
  * Or with environment variables:
- *   TURSO_DATABASE_URL=xxx TURSO_AUTH_TOKEN=xxx npm run db:migrate:prod
+ *   DATABASE_URL=postgresql://... npm run db:migrate:prod
  *
  * Or create a .env.production file with your credentials
  */
 
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
-import { migrate } from "drizzle-orm/libsql/migrator";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { env } from "node:process";
 import { config } from "dotenv";
 import { existsSync } from "node:fs";
@@ -28,23 +28,19 @@ if (existsSync(envPath)) {
 
 async function main() {
   // Get connection details from environment
-  const databaseUrl = env.TURSO_DATABASE_URL || env.NUXT_TURSO_DATABASE_URL;
-  const authToken = env.TURSO_AUTH_TOKEN || env.NUXT_TURSO_AUTH_TOKEN;
+  const databaseUrl = env.DATABASE_URL;
 
   if (!databaseUrl) {
-    console.error("❌ Error: TURSO_DATABASE_URL is required");
+    console.error("❌ Error: DATABASE_URL is required");
     console.error("Set it via environment variable or .env.production file");
     process.exit(1);
   }
 
   console.log("🔄 Connecting to production database...");
-  console.log(`📍 Database: ${databaseUrl}`);
+  console.log(`📍 Database: ${databaseUrl.replace(/:[^:]*@/, ":****@")}`); // Hide password
 
   // Create client
-  const client = createClient({
-    url: databaseUrl,
-    authToken: authToken,
-  });
+  const client = postgres(databaseUrl, { max: 1 });
 
   const db = drizzle(client);
 
@@ -60,7 +56,7 @@ async function main() {
     console.error("❌ Migration failed:", error);
     process.exit(1);
   } finally {
-    client.close();
+    await client.end();
   }
 }
 

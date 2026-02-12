@@ -1,16 +1,11 @@
 import { defineConfig } from "drizzle-kit";
-import { tursoConfig } from "./turso.config";
-
-const isLocalFile = tursoConfig.url.startsWith("file:");
+import { postgresConfig } from "./postgres.config";
 
 export default defineConfig({
-  dialect: isLocalFile ? "sqlite" : "turso",
+  dialect: "postgresql",
   schema: "./db/schema.ts",
   out: "./db/migrations",
-  dbCredentials: isLocalFile
-    ? { url: tursoConfig.url }
-    : {
-        url: tursoConfig.url,
-        authToken: tursoConfig.authToken,
-      },
+  dbCredentials: {
+    url: postgresConfig.url,
+  },
 });

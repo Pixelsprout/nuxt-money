@@ -5,7 +5,7 @@ export function checkEnv(env: NodeJS.ProcessEnv) {
   }
 
   const required = [
-    "NUXT_TURSO_DATABASE_URL",
+    "DATABASE_URL",
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_URL",
     "GOOGLE_CLIENT_ID",
@@ -20,25 +20,11 @@ export function checkEnv(env: NodeJS.ProcessEnv) {
     );
   }
 
-  // Check if we're in production or staging
-  const environment = env.NODE_ENV || "development";
-  const isProduction = environment === "production";
-  const isStaging = environment === "staging";
-
-  // NUXT_TURSO_AUTH_TOKEN is required in production and staging
-  if ((isProduction || isStaging) && !env.NUXT_TURSO_AUTH_TOKEN) {
+  // Validate DATABASE_URL format
+  const databaseUrl = env.DATABASE_URL;
+  if (databaseUrl && !databaseUrl.startsWith("postgresql://")) {
     throw new Error(
-      `Missing required environment variable: NUXT_TURSO_AUTH_TOKEN (required in ${environment} environment)`,
+      "DATABASE_URL must be a PostgreSQL connection string (postgresql://...)",
     );
-  }
-
-  // In development, check if using remote Turso (not local file)
-  if (environment === "development") {
-    const isLocalFile = env.NUXT_TURSO_DATABASE_URL?.startsWith("file:");
-    if (!isLocalFile && !env.NUXT_TURSO_AUTH_TOKEN) {
-      throw new Error(
-        "Missing required environment variable: NUXT_TURSO_AUTH_TOKEN (required for remote Turso)",
-      );
-    }
   }
 }

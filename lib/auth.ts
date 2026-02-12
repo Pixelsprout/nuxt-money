@@ -19,7 +19,7 @@ function getBaseURL() {
 
 export const auth = betterAuth({
   database: drizzleAdapter(useDrizzle(), {
-    provider: "sqlite",
+    provider: "postgresql",
     schema: {
       ...schema,
     },

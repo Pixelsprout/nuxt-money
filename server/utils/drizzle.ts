@@ -1,15 +1,12 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import { tursoConfig } from "../../config/turso.config";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { postgresConfig } from "../../config/postgres.config";
 import * as schema from "../../db/schema";
 
-const tursoClient = createClient({
-  url: tursoConfig.url,
-  authToken: tursoConfig.authToken,
-});
+const queryClient = postgres(postgresConfig.url);
 
 export const useDrizzle = () => {
-  return drizzle(tursoClient);
+  return drizzle(queryClient, { schema });
 };
 
 export const tables = schema;
