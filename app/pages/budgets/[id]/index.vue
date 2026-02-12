@@ -62,11 +62,18 @@ const income = computed(() => data.value?.income || []);
 const fixedExpenses = computed(() => data.value?.fixedExpenses || []);
 
 const isRolloverModalOpen = ref(false);
+const selectedExpense = ref<FixedExpense | null>(null);
+const isExpenseDetailsModalOpen = ref(false);
 
 const showRolloverBanner = computed(() => {
   if (!period.value) return false;
   return period.value.daysRemaining <= 3 || period.value.percentComplete >= 100;
 });
+
+function openExpenseDetails(expense: FixedExpense) {
+  selectedExpense.value = expense;
+  isExpenseDetailsModalOpen.value = true;
+}
 
 const handleRolloverSuccess = (newBudgetId: string) => {
   navigateTo(`/budgets/${newBudgetId}`);
@@ -341,7 +348,8 @@ const deleteBudget = async () => {
               <div
                 v-for="item in fixedExpenses"
                 :key="item.id"
-                class="flex justify-between p-3 bg-muted/30 rounded-lg"
+                class="flex justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                @click="openExpenseDetails(item)"
               >
                 <span>{{ item.name }}</span>
                 <span class="font-medium text-error">
@@ -362,6 +370,15 @@ const deleteBudget = async () => {
           :budget-id="budgetId"
           :budget-name="budget.name"
           @success="handleRolloverSuccess"
+        />
+
+        <!-- Fixed Expense Details Modal -->
+        <FixedExpenseDetailsModal
+          :expense="selectedExpense"
+          :budget-id="budgetId"
+          :open="isExpenseDetailsModalOpen"
+          @update:open="isExpenseDetailsModalOpen = $event"
+          @refresh="refresh"
         />
       </div>
     </template>

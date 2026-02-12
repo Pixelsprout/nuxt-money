@@ -1,0 +1,1 @@
+ALTER TABLE "fixed_expense_transaction" ADD COLUMN "auto_tagged" boolean DEFAULT false NOT NULL;

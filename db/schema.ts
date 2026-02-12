@@ -218,6 +218,7 @@ export const fixedExpenseTransaction = pgTable("fixed_expense_transaction", {
     .notNull()
     .references(() => akahuTransaction.id, { onDelete: "cascade" }),
   linkedAt: timestamp("linked_at").defaultNow().notNull(),
+  autoTagged: boolean("auto_tagged").default(false).notNull(), // Track if auto or manually tagged
 });
 
 export type FixedExpenseTransaction = InferSelectModel<

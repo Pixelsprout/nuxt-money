@@ -14,6 +14,8 @@ const props = defineProps<{
 
 const showModal = ref(false);
 const editingItem = ref<FixedExpense | null>(null);
+const entryMode = ref<"transaction" | "manual">("transaction");
+const selectedTransaction = ref<any>(null);
 
 // Fetch categories
 const { data: categoriesData } = await useFetch<{
@@ -33,7 +35,67 @@ const formData = reactive({
     | "YEARLY",
   categoryId: null as string | null,
   description: "",
+  matchPatternMerchant: "",
+  matchPatternDescription: "",
 });
+
+// Transaction selector for picking expenses
+const searchTerm = ref("");
+const loadingTransactions = ref(false);
+const transactions = ref<any[]>([]);
+
+async function loadTransactions() {
+  loadingTransactions.value = true;
+  try {
+    const { data } = await useFetch<{
+      success: boolean;
+      transactions: any[];
+    }>("/api/transactions/all", {
+      query: { type: "DEBIT" }, // Only show DEBIT transactions for expenses
+    });
+    transactions.value = data.value?.transactions || [];
+  } catch (err) {
+    console.error("Failed to load transactions:", err);
+  } finally {
+    loadingTransactions.value = false;
+  }
+}
+
+const filteredTransactions = computed(() => {
+  let filtered = transactions.value;
+  if (searchTerm.value) {
+    const search = searchTerm.value.toLowerCase();
+    filtered = filtered.filter(
+      (t: any) =>
+        t.description.toLowerCase().includes(search) ||
+        t.merchant?.toLowerCase().includes(search),
+    );
+  }
+  return filtered.slice(0, 50); // Limit to 50 for performance
+});
+
+function selectTransaction(transaction: any) {
+  selectedTransaction.value = transaction;
+
+  // Pre-populate form fields from transaction
+  formData.name = transaction.description || "";
+  formData.amount = Math.abs((transaction.amount as any)?.value || 0);
+
+  // Pre-populate match patterns from transaction
+  if (transaction.merchant) {
+    formData.matchPatternMerchant = transaction.merchant;
+  }
+  formData.matchPatternDescription = transaction.description || "";
+}
+
+function toggleToManual() {
+  entryMode.value = "manual";
+}
+
+function toggleToTransaction() {
+  entryMode.value = "transaction";
+  selectedTransaction.value = null;
+}
 
 const frequencyOptions = [
   { value: "WEEKLY", label: "Weekly" },
@@ -49,12 +111,18 @@ const resetForm = () => {
   formData.frequency = "MONTHLY";
   formData.categoryId = null;
   formData.description = "";
+  formData.matchPatternMerchant = "";
+  formData.matchPatternDescription = "";
   editingItem.value = null;
+  entryMode.value = "transaction";
+  selectedTransaction.value = null;
+  searchTerm.value = "";
 };
 
 const openAddModal = () => {
   resetForm();
   showModal.value = true;
+  loadTransactions(); // Load transactions when modal opens
 };
 
 const openEditModal = (item: FixedExpense) => {
@@ -70,6 +138,19 @@ const openEditModal = (item: FixedExpense) => {
 const saveItem = () => {
   if (!formData.name.trim() || formData.amount <= 0) return;
 
+  // Build match pattern
+  const matchPattern: { merchant?: string; description?: string } | null =
+    formData.matchPatternMerchant || formData.matchPatternDescription
+      ? {
+          ...(formData.matchPatternMerchant && {
+            merchant: formData.matchPatternMerchant,
+          }),
+          ...(formData.matchPatternDescription && {
+            description: formData.matchPatternDescription,
+          }),
+        }
+      : null;
+
   const item: FixedExpense = {
     id: editingItem.value?.id || nanoid(),
     budgetId: "",
@@ -79,7 +160,7 @@ const saveItem = () => {
     frequency: formData.frequency,
     categoryId: formData.categoryId,
     description: formData.description || null,
-    matchPattern: null,
+    matchPattern: matchPattern,
     nextDueDate: null,
     createdAt: editingItem.value?.createdAt || new Date(),
     updatedAt: new Date(),
@@ -242,7 +323,145 @@ const totalMonthlyExpenses = computed(() => {
 
     <!-- Form Template -->
     <DefineFormTemplate>
-      <div class="space-y-4">
+      <!-- Mode Toggle -->
+      <div class="flex justify-end mb-4">
+        <UButton
+          v-if="entryMode === 'transaction'"
+          variant="outline"
+          size="sm"
+          @click="toggleToManual"
+        >
+          Manually Set Expense
+        </UButton>
+        <UButton
+          v-else
+          variant="outline"
+          size="sm"
+          icon="i-heroicons-arrow-left"
+          @click="toggleToTransaction"
+        >
+          Select from Transaction
+        </UButton>
+      </div>
+
+      <!-- Transaction Picker View -->
+      <div v-if="entryMode === 'transaction'" class="space-y-4">
+        <UInput
+          v-model="searchTerm"
+          placeholder="Search transactions..."
+          icon="i-lucide-search"
+        />
+
+        <div
+          v-if="loadingTransactions"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="text-center">
+            <div
+              class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
+            ></div>
+            <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
+          </div>
+        </div>
+
+        <div v-else class="space-y-2 max-h-96 overflow-y-auto">
+          <div
+            v-for="transaction in filteredTransactions"
+            :key="transaction.id"
+            class="border rounded-lg p-3 cursor-pointer transition-colors"
+            :class="{
+              'border-primary-500 bg-primary-50':
+                selectedTransaction?.id === transaction.id,
+              'hover:border-gray-300':
+                selectedTransaction?.id !== transaction.id,
+            }"
+            @click="selectTransaction(transaction)"
+          >
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <p class="font-medium text-gray-900 text-sm">
+                  {{ transaction.description }}
+                </p>
+                <div class="flex items-center gap-4 mt-2 text-sm">
+                  <span class="text-gray-500">
+                    {{ new Date(transaction.date).toLocaleDateString() }}
+                  </span>
+                  <span class="text-red-600 font-semibold">
+                    {{
+                      new Intl.NumberFormat("en-NZ", {
+                        style: "currency",
+                        currency: "NZD",
+                      }).format(
+                        Math.abs((transaction.amount as any)?.value || 0),
+                      )
+                    }}
+                  </span>
+                </div>
+                <div
+                  v-if="transaction.merchant"
+                  class="text-xs text-gray-400 mt-1"
+                >
+                  Merchant: {{ transaction.merchant }}
+                </div>
+              </div>
+
+              <UIcon
+                v-if="selectedTransaction?.id === transaction.id"
+                name="i-heroicons-check-circle-solid"
+                class="text-primary-500 text-xl flex-shrink-0"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="filteredTransactions.length === 0"
+            class="text-center py-8 text-gray-500"
+          >
+            <p>No transactions found</p>
+          </div>
+        </div>
+
+        <!-- Selected Transaction Summary -->
+        <div
+          v-if="selectedTransaction"
+          class="border-t pt-4 mt-4 bg-gray-50 p-4"
+        >
+          <h4 class="font-medium text-sm mb-2">Selected Transaction</h4>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Description:</span>
+              <span class="font-medium">{{
+                selectedTransaction.description
+              }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Amount:</span>
+              <span class="font-medium text-red-600">
+                {{
+                  new Intl.NumberFormat("en-NZ", {
+                    style: "currency",
+                    currency: "NZD",
+                  }).format(
+                    Math.abs((selectedTransaction.amount as any)?.value || 0),
+                  )
+                }}
+              </span>
+            </div>
+            <div
+              v-if="selectedTransaction.merchant"
+              class="flex justify-between"
+            >
+              <span class="text-gray-600">Merchant:</span>
+              <span class="font-medium">{{
+                selectedTransaction.merchant
+              }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Entry View -->
+      <div v-else class="space-y-4">
         <UInput
           v-model="formData.name"
           label="Expense Name"
@@ -313,6 +532,38 @@ const totalMonthlyExpenses = computed(() => {
           label="Description (optional)"
           placeholder="Any additional details..."
         />
+
+        <div class="space-y-3 border-t pt-4">
+          <h4 class="text-sm font-medium">Auto-Matching (Optional)</h4>
+          <p class="text-xs text-gray-500">
+            Set patterns to automatically match future transactions to this
+            expense
+          </p>
+
+          <UInput
+            v-model="formData.matchPatternMerchant"
+            label="Merchant Pattern"
+            placeholder="e.g., Netflix, Spark"
+          >
+            <template #help>
+              <span class="text-xs text-gray-500">
+                Transactions from this merchant will be suggested for tagging
+              </span>
+            </template>
+          </UInput>
+
+          <UInput
+            v-model="formData.matchPatternDescription"
+            label="Description Pattern"
+            placeholder="e.g., Electricity, Internet"
+          >
+            <template #help>
+              <span class="text-xs text-gray-500">
+                Transactions containing this text will be suggested for tagging
+              </span>
+            </template>
+          </UInput>
+        </div>
       </div>
     </DefineFormTemplate>
 

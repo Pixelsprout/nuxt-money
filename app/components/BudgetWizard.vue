@@ -318,6 +318,9 @@ const submitBudget = async () => {
           amount: income.amount,
           frequency: income.frequency,
           notes: income.notes,
+          expectedFromAccount: income.expectedFromAccount,
+          autoTagEnabled: income.autoTagEnabled,
+          adjustForWeekends: income.adjustForWeekends,
         },
       });
     }
@@ -332,6 +335,7 @@ const submitBudget = async () => {
           frequency: expense.frequency,
           categoryId: expense.categoryId,
           description: expense.description,
+          matchPattern: expense.matchPattern,
         },
       });
     }
@@ -400,6 +404,9 @@ const submitBudgetEdit = async () => {
             amount: income.amount,
             frequency: income.frequency,
             notes: income.notes,
+            expectedFromAccount: income.expectedFromAccount,
+            autoTagEnabled: income.autoTagEnabled,
+            adjustForWeekends: income.adjustForWeekends,
           },
         });
       } else {
@@ -411,6 +418,9 @@ const submitBudgetEdit = async () => {
             amount: income.amount,
             frequency: income.frequency,
             notes: income.notes,
+            expectedFromAccount: income.expectedFromAccount,
+            autoTagEnabled: income.autoTagEnabled,
+            adjustForWeekends: income.adjustForWeekends,
           },
         });
       }
@@ -437,6 +447,7 @@ const submitBudgetEdit = async () => {
               frequency: expense.frequency,
               categoryId: expense.categoryId,
               description: expense.description,
+              matchPattern: expense.matchPattern,
             },
           },
         );
@@ -450,6 +461,7 @@ const submitBudgetEdit = async () => {
             frequency: expense.frequency,
             categoryId: expense.categoryId,
             description: expense.description,
+            matchPattern: expense.matchPattern,
           },
         });
       }
@@ -534,9 +546,11 @@ const handleSubmit = () => {
 // Save draft
 const saveDraft = async () => {
   try {
-    if (draftBudgetId.value) {
+    let budgetId = draftBudgetId.value;
+
+    if (budgetId) {
       // Update existing draft
-      await $fetch(`/api/budgets/${draftBudgetId.value}`, {
+      await $fetch(`/api/budgets/${budgetId}`, {
         method: "PATCH",
         body: {
           name: budgetData.name,
@@ -561,11 +575,128 @@ const saveDraft = async () => {
           },
         },
       );
+      budgetId = budget.id;
       draftBudgetId.value = budget.id;
+    }
+
+    // Save income items
+    for (const income of incomeItems.value) {
+      if (income._id) {
+        // Update existing
+        await $fetch(`/api/budgets/${budgetId}/income/${income._id}`, {
+          method: "PATCH",
+          body: {
+            name: income.name,
+            amount: income.amount,
+            frequency: income.frequency,
+            notes: income.notes,
+            expectedFromAccount: income.expectedFromAccount,
+            autoTagEnabled: income.autoTagEnabled,
+            adjustForWeekends: income.adjustForWeekends,
+          },
+        });
+      } else {
+        // Create new
+        await $fetch(`/api/budgets/${budgetId}/income/create`, {
+          method: "POST",
+          body: {
+            name: income.name,
+            amount: income.amount,
+            frequency: income.frequency,
+            notes: income.notes,
+            expectedFromAccount: income.expectedFromAccount,
+            autoTagEnabled: income.autoTagEnabled,
+            adjustForWeekends: income.adjustForWeekends,
+          },
+        });
+      }
+    }
+
+    // Delete removed income items
+    for (const incomeId of deletedIncomeIds.value) {
+      await $fetch(`/api/budgets/${budgetId}/income/${incomeId}`, {
+        method: "DELETE",
+      });
+    }
+
+    // Save fixed expenses
+    for (const expense of fixedExpenseItems.value) {
+      if (expense._id) {
+        // Update existing
+        await $fetch(`/api/budgets/${budgetId}/fixed-expenses/${expense._id}`, {
+          method: "PATCH",
+          body: {
+            name: expense.name,
+            amount: expense.amount,
+            frequency: expense.frequency,
+            categoryId: expense.categoryId,
+            description: expense.description,
+            matchPattern: expense.matchPattern,
+          },
+        });
+      } else {
+        // Create new
+        await $fetch(`/api/budgets/${budgetId}/fixed-expenses/create`, {
+          method: "POST",
+          body: {
+            name: expense.name,
+            amount: expense.amount,
+            frequency: expense.frequency,
+            categoryId: expense.categoryId,
+            description: expense.description,
+            matchPattern: expense.matchPattern,
+          },
+        });
+      }
+    }
+
+    // Delete removed expense items
+    for (const expenseId of deletedExpenseIds.value) {
+      await $fetch(`/api/budgets/${budgetId}/fixed-expenses/${expenseId}`, {
+        method: "DELETE",
+      });
+    }
+
+    // Save allocations
+    for (const allocation of allocationItems.value) {
+      if (allocation._id) {
+        // Update existing
+        await $fetch(`/api/budgets/${budgetId}/allocations/${allocation._id}`, {
+          method: "PATCH",
+          body: {
+            categoryId: allocation.categoryId,
+            allocatedAmount: allocation.allocatedAmount,
+            notes: allocation.notes,
+          },
+        });
+      } else {
+        // Create new
+        await $fetch(`/api/budgets/${budgetId}/allocations/create`, {
+          method: "POST",
+          body: {
+            categoryId: allocation.categoryId,
+            allocatedAmount: allocation.allocatedAmount,
+            notes: allocation.notes,
+          },
+        });
+      }
+    }
+
+    // Delete removed allocation items
+    for (const allocationId of deletedAllocationIds.value) {
+      await $fetch(`/api/budgets/${budgetId}/allocations/${allocationId}`, {
+        method: "DELETE",
+      });
     }
 
     isDirty.value = false;
     allowNavigation.value = true;
+
+    toast.add({
+      title: "Draft Saved",
+      description: "Your budget has been saved as a draft.",
+      color: "success",
+    });
 
     // Navigate to budgets list
     navigateTo("/budgets");
