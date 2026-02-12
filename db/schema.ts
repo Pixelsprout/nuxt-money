@@ -1,5 +1,12 @@
 import type { InferSelectModel } from "drizzle-orm";
-import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  timestamp,
+  jsonb,
+  boolean,
+} from "drizzle-orm/pg-core";
 export * from "./auth/auth";
 import { user } from "./auth/auth";
 
@@ -86,6 +93,17 @@ export const akahuTransaction = pgTable("akahu_transaction", {
     onDelete: "set null",
   }),
 
+  // Transaction metadata from Akahu
+  meta: jsonb("meta").$type<{
+    other_account?: string; // "00-0000-0000000-00"
+    particulars?: string;
+    code?: string;
+    reference?: string;
+    conversion?: Record<string, unknown>;
+    card_suffix?: string;
+    logo?: string;
+  }>(),
+
   // Sync tracking
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -125,11 +143,45 @@ export const budgetIncome = pgTable("budget_income", {
   amount: integer("amount").notNull(), // cents
   frequency: text("frequency").notNull(), // WEEKLY, FORTNIGHTLY, MONTHLY
   notes: text("notes"),
+
+  // Payday scheduling (user-configurable or auto-inferred)
+  referenceDatePayday: timestamp("reference_date_payday"), // First/reference payday
+  adjustForWeekends: boolean("adjust_for_weekends").default(true),
+
+  // Auto-calculated next payday (updates after tagging transactions)
+  nextPaydayDate: timestamp("next_payday_date"),
+
+  // Optional: Track expected source account for auto-tagging
+  expectedFromAccount: text("expected_from_account"),
+
+  // Enable/disable auto-tagging for this income item
+  autoTagEnabled: boolean("auto_tag_enabled").default(true),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type BudgetIncome = InferSelectModel<typeof budgetIncome>;
+
+export const budgetIncomeTransaction = pgTable("budget_income_transaction", {
+  id: text("id").primaryKey(), // nanoid()
+
+  incomeId: text("income_id")
+    .notNull()
+    .references(() => budgetIncome.id, { onDelete: "cascade" }),
+
+  transactionId: text("transaction_id")
+    .notNull()
+    .references(() => akahuTransaction.id, { onDelete: "cascade" }),
+
+  fromAccount: text("from_account"), // Captured from transaction.meta.other_account
+  linkedAt: timestamp("linked_at").defaultNow().notNull(),
+  autoTagged: boolean("auto_tagged").default(false).notNull(), // Track if auto or manually tagged
+});
+
+export type BudgetIncomeTransaction = InferSelectModel<
+  typeof budgetIncomeTransaction
+>;
 
 export const fixedExpense = pgTable("fixed_expense", {
   id: text("id").primaryKey(), // nanoid()

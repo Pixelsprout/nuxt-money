@@ -4,6 +4,7 @@ import { budget, budgetIncome } from "#db/schema";
 import { eq, and } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
+  // Validate session
   const session = await auth.api.getSession({
     headers: event.node.req.headers,
   });
@@ -28,34 +29,36 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Verify budget ownership
-    const budgetResult = await db
-      .select()
-      .from(budget)
-      .where(and(eq(budget.id, budgetId), eq(budget.userId, session.user.id)));
+    const budgetRecord = await db.query.budget.findFirst({
+      where: and(eq(budget.id, budgetId), eq(budget.userId, session.user.id)),
+    });
 
-    if (budgetResult.length === 0) {
+    if (!budgetRecord) {
       throw createError({
         statusCode: 404,
-        message: "Budget not found",
+        message: "Budget not found or access denied",
       });
     }
 
-    // Get income sources
-    const incomeResult = await db
+    // Fetch all income items for this budget
+    const incomes = await db
       .select()
       .from(budgetIncome)
-      .where(eq(budgetIncome.budgetId, budgetId));
+      .where(
+        and(
+          eq(budgetIncome.budgetId, budgetId),
+          eq(budgetIncome.userId, session.user.id),
+        ),
+      );
 
     return {
-      success: true,
-      income: incomeResult,
+      incomes: incomes,
     };
   } catch (error: any) {
-    if (error.statusCode) throw error;
-    console.error("[budgets/income] Error fetching income:", error);
+    console.error("[income] Error fetching income items:", error);
     throw createError({
-      statusCode: 500,
-      message: "Failed to fetch income sources",
+      statusCode: error.statusCode || 500,
+      message: error.message || "Failed to fetch income items",
     });
   }
 });

@@ -11,11 +11,28 @@ const props = defineProps<{
   accountId?: string;
   transactions?: AkahuTransaction[];
   columns?: TableColumn<AkahuTransaction>[];
+  budgetId?: string; // Optional budget ID for income tagging
 }>();
 
 const searchTerm = ref("");
 const typeFilter = ref<"ALL" | "DEBIT" | "CREDIT">("ALL");
 const loading = ref(false);
+
+// Income tagging modal state
+const incomeTagModalOpen = ref(false);
+const selectedTransactionForTagging = ref<AkahuTransaction | null>(null);
+
+function openIncomeTagModal(transaction: AkahuTransaction) {
+  selectedTransactionForTagging.value = transaction;
+  incomeTagModalOpen.value = true;
+}
+
+function handleIncomeTagged() {
+  // Refresh transactions to show updated tags
+  if (props.accountId) {
+    refresh();
+  }
+}
 
 // Fetch all transactions (only if accountId is provided)
 const {
@@ -170,6 +187,31 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
     },
   },
   {
+    accessorKey: "income",
+    header: "Income",
+    size: 150,
+    cell: ({ row }) => {
+      const transaction = row.original;
+      const UButton = resolveComponent("UButton");
+
+      // Only show income tagging if budgetId is provided and transaction is a credit
+      if (!props.budgetId || transaction.type !== "CREDIT") {
+        return "-";
+      }
+
+      return h(
+        UButton,
+        {
+          size: "xs",
+          variant: "outline",
+          color: "primary",
+          onClick: () => openIncomeTagModal(transaction),
+        },
+        () => "Tag Income",
+      );
+    },
+  },
+  {
     accessorKey: "type",
     header: "Type",
     size: 100,
@@ -263,5 +305,15 @@ defineExpose({ refresh });
         </template>
       </UTable>
     </div>
+
+    <!-- Income Tagging Modal -->
+    <TransactionIncomeTagModal
+      v-if="selectedTransactionForTagging && budgetId"
+      :transaction="selectedTransactionForTagging"
+      :budget-id="budgetId"
+      :open="incomeTagModalOpen"
+      @update:open="incomeTagModalOpen = $event"
+      @tagged="handleIncomeTagged"
+    />
   </div>
 </template>

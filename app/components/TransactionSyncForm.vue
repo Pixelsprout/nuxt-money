@@ -37,6 +37,14 @@ const handleSync = async () => {
   syncing.value = true;
 
   try {
+    // Convert dates to ISO 8601 format with UTC timezone
+    // Start at beginning of day (00:00:00.000Z)
+    // End at end of day (23:59:59.999Z)
+    const startISO = new Date(startDate.value + "T00:00:00.000Z").toISOString();
+    const endISO = new Date(endDate.value + "T23:59:59.999Z").toISOString();
+
+    console.log("Syncing transactions:", { startISO, endISO });
+
     const response = await $fetch<{
       success: boolean;
       syncedCount: number;
@@ -44,8 +52,8 @@ const handleSync = async () => {
       method: "POST",
       body: {
         accountId: props.accountId,
-        startDate: startDate.value,
-        endDate: endDate.value,
+        startDate: startISO,
+        endDate: endISO,
       },
     });
 
