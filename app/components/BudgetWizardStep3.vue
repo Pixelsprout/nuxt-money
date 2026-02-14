@@ -241,7 +241,58 @@ const totalMonthlyExpenses = computed(() => {
 
     <!-- Expenses Table -->
     <div v-if="modelValue.length > 0" class="space-y-4">
-      <div class="border rounded-lg overflow-hidden">
+      <!-- Mobile: Stacked cards -->
+      <div class="space-y-3 md:hidden">
+        <div
+          v-for="item in modelValue"
+          :key="item.id"
+          class="border rounded-lg p-3"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-medium truncate">{{ item.name }}</p>
+              <p v-if="item.description" class="text-xs text-muted truncate">
+                {{ item.description }}
+              </p>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                <UBadge
+                  :style="{
+                    backgroundColor: getCategoryColor(item.categoryId) + '20',
+                    color: getCategoryColor(item.categoryId),
+                  }"
+                  size="xs"
+                >
+                  {{ getCategoryName(item.categoryId) }}
+                </UBadge>
+                <span class="text-error font-medium text-sm">
+                  {{ formatCurrency(item.amount) }}
+                </span>
+                <UBadge color="neutral" variant="subtle" size="xs">
+                  {{ item.frequency }}
+                </UBadge>
+              </div>
+            </div>
+            <div class="flex gap-1 shrink-0">
+              <UButton
+                size="xs"
+                variant="ghost"
+                icon="i-lucide-pencil"
+                @click="openEditModal(item)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="error"
+                icon="i-lucide-trash-2"
+                @click="deleteItem(item.id)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: Table -->
+      <div class="border rounded-lg overflow-hidden hidden md:block">
         <table class="w-full">
           <thead class="bg-muted/50">
             <tr>

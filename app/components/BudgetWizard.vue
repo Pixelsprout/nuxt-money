@@ -818,7 +818,12 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <!-- Stepper Header -->
-      <UStepper v-model="currentStep" :items="steps" class="w-full" />
+      <UStepper
+        v-model="currentStep"
+        :items="steps"
+        class="w-full"
+        :ui="{ description: 'hidden md:block' }"
+      />
 
       <!-- Step Content -->
       <div class="min-h-100">
@@ -874,19 +879,33 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Navigation Buttons -->
-      <div class="flex justify-between pt-4 border-t">
-        <UButton
-          v-if="currentStep > 0"
-          variant="outline"
-          color="neutral"
-          icon="i-lucide-arrow-left"
-          @click="goPrev"
-        >
-          Previous
-        </UButton>
-        <div v-else></div>
-
+      <div
+        class="flex flex-col-reverse sm:flex-row sm:justify-between gap-4 pt-4 border-t"
+      >
         <div class="flex gap-2">
+          <UButton
+            v-if="currentStep > 0"
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-arrow-left"
+            class="justify-center flex-1"
+            @click="goPrev"
+          >
+            Previous
+          </UButton>
+          <UButton
+            v-if="currentStep < 4"
+            class="flex-1 justify-center sm:hidden"
+            :disabled="!canGoNext"
+            icon="i-lucide-arrow-right"
+            trailing
+            @click="goNext"
+          >
+            Next
+          </UButton>
+        </div>
+
+        <div class="flex flex-wrap gap-2 justify-end">
           <UButton variant="ghost" color="neutral" @click="handleCancel">
             Cancel
           </UButton>
@@ -900,9 +919,9 @@ onBeforeUnmount(() => {
           >
             Save as Draft
           </UButton>
-
           <UButton
             v-if="currentStep < 4"
+            class="flex-1 justify-center hidden sm:flex"
             :disabled="!canGoNext"
             icon="i-lucide-arrow-right"
             trailing

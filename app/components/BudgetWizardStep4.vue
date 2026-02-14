@@ -137,7 +137,65 @@ const totalAllocations = computed(() =>
 
     <!-- Allocated Categories -->
     <div v-if="modelValue.length > 0" class="space-y-4">
-      <div class="border rounded-lg overflow-hidden">
+      <!-- Mobile: Stacked cards -->
+      <div class="space-y-3 md:hidden">
+        <div
+          v-for="allocation in modelValue"
+          :key="allocation.id"
+          class="border rounded-lg p-3"
+        >
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span
+                class="w-3 h-3 rounded-full shrink-0"
+                :style="{
+                  backgroundColor: getCategoryById(allocation.categoryId)
+                    ?.color,
+                }"
+              ></span>
+              <span class="font-medium">{{
+                getCategoryById(allocation.categoryId)?.name
+              }}</span>
+            </div>
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-lucide-trash-2"
+              @click="removeAllocation(allocation.categoryId)"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between gap-3 text-sm text-muted mb-2"
+          >
+            <span>Fixed expenses</span>
+            <span>{{
+              formatCurrency(
+                fixedExpensesByCategory.get(allocation.categoryId) || 0,
+              )
+            }}</span>
+          </div>
+          <div>
+            <label class="text-sm text-muted block mb-1">Allocation</label>
+            <UInput
+              :model-value="allocationAmounts[allocation.categoryId]"
+              type="number"
+              min="0"
+              step="0.01"
+              @update:model-value="
+                updateAmount(allocation.categoryId, $event as number)
+              "
+            >
+              <template #leading>
+                <span class="text-muted text-sm">$</span>
+              </template>
+            </UInput>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: Table -->
+      <div class="border rounded-lg overflow-hidden hidden md:block">
         <table class="w-full">
           <thead class="bg-muted/50">
             <tr>
@@ -146,7 +204,7 @@ const totalAllocations = computed(() =>
                 Fixed Expenses
               </th>
               <th class="px-4 py-2 text-left text-sm font-medium">
-                Additional Allocation
+                Allocation
               </th>
               <th class="px-4 py-2 text-right text-sm font-medium">Actions</th>
             </tr>

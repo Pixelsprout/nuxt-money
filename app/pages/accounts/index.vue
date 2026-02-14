@@ -31,15 +31,17 @@ onMounted(() => {
 
 <template>
   <UDashboardPanel>
-    <UDashboardNavbar title="Accounts">
-      <template #right>
-        <UButton icon="i-lucide-refresh-cw" @click="showModal = true">
-          Sync Accounts
-        </UButton>
-      </template>
-    </UDashboardNavbar>
+    <template #header>
+      <UDashboardNavbar title="Accounts">
+        <template #right>
+          <UButton icon="i-lucide-refresh-cw" @click="showModal = true">
+            Sync Accounts
+          </UButton>
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <UPageCard>
+    <template #body>
       <div class="space-y-6">
         <div>
           <p class="text-muted">Manage your synced Akahu accounts</p>
@@ -80,6 +82,6 @@ onMounted(() => {
         <!-- Sync Modal -->
         <AkahuSyncModal v-model:open="showModal" @synced="refreshAccounts" />
       </div>
-    </UPageCard>
+    </template>
   </UDashboardPanel>
 </template>

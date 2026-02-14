@@ -227,7 +227,7 @@ const surplusStatus = computed(() => {
         </div>
 
         <div
-          class="mt-4 pt-4 border-t border-current/10 grid grid-cols-3 gap-4 text-sm"
+          class="mt-4 pt-4 border-t border-current/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm"
         >
           <div>
             <p class="text-muted">Total Income</p>

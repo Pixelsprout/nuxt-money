@@ -19,18 +19,20 @@ const handleCancel = () => {
 
 <template>
   <UDashboardPanel :ui="{ body: 'pb-20 sm:pb-0' }">
-    <UDashboardNavbar title="Edit Budget">
-      <template #leading>
-        <UButton variant="ghost" icon="i-lucide-arrow-left" to="/budgets" />
-      </template>
-    </UDashboardNavbar>
+    <template #header>
+      <UDashboardNavbar title="Edit Budget">
+        <template #leading>
+          <UButton variant="ghost" icon="i-lucide-arrow-left" to="/budgets" />
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <UPageCard>
+    <template #body>
       <BudgetWizard
         :budget-id="budgetId"
         @complete="handleComplete"
         @cancel="handleCancel"
       />
-    </UPageCard>
+    </template>
   </UDashboardPanel>
 </template>

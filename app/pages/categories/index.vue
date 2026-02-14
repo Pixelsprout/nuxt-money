@@ -112,9 +112,11 @@ onMounted(() => {
 
 <template>
   <UDashboardPanel>
-    <UDashboardNavbar title="Categories" />
+    <template #header>
+      <UDashboardNavbar title="Categories" />
+    </template>
 
-    <UPageCard>
+    <template #body>
       <div class="space-y-6">
         <div>
           <p class="text-muted">
@@ -168,11 +170,7 @@ onMounted(() => {
 
             <div>
               <label class="text-sm font-medium block mb-2">Color</label>
-              <input
-                v-model="formData.color"
-                type="color"
-                class="w-full h-10 rounded cursor-pointer"
-              />
+              <ColorSwatchPicker v-model="formData.color" />
             </div>
 
             <UTextarea
@@ -238,6 +236,6 @@ onMounted(() => {
           </template>
         </UDrawer>
       </div>
-    </UPageCard>
+    </template>
   </UDashboardPanel>
 </template>

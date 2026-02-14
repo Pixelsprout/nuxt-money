@@ -74,15 +74,17 @@ const handleEditClick = (event: Event, budgetId: string) => {
 
 <template>
   <UDashboardPanel>
-    <UDashboardNavbar title="Budgets">
-      <template #right>
-        <UButton icon="i-lucide-plus" to="/budgets/create">
-          Create Budget
-        </UButton>
-      </template>
-    </UDashboardNavbar>
+    <template #header>
+      <UDashboardNavbar title="Budgets">
+        <template #right>
+          <UButton icon="i-lucide-plus" to="/budgets/create">
+            Create Budget
+          </UButton>
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <UPageCard>
+    <template #body>
       <div class="space-y-6">
         <div>
           <p class="text-muted">
@@ -182,6 +184,6 @@ const handleEditClick = (event: Event, budgetId: string) => {
           </div>
         </div>
       </div>
-    </UPageCard>
+    </template>
   </UDashboardPanel>
 </template>

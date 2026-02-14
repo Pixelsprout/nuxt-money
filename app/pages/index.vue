@@ -17,8 +17,11 @@ const { data: session } = await useFetch<{
 
 <template>
   <UDashboardPanel>
-    <UDashboardNavbar title="Dashboard" />
-    <UPageCard>
+    <template #header>
+      <UDashboardNavbar title="Dashboard" />
+    </template>
+
+    <template #body>
       <div class="space-y-6">
         <div>
           <h1 class="text-3xl font-bold">Welcome to Nuxt Money</h1>
@@ -33,6 +36,6 @@ const { data: session } = await useFetch<{
           </p>
         </div>
       </div>
-    </UPageCard>
+    </template>
   </UDashboardPanel>
 </template>
