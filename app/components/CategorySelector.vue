@@ -234,14 +234,7 @@ const handleCreate = async () => {
 
         <div>
           <label class="block text-sm font-medium mb-2">Color</label>
-          <div class="flex items-center gap-3">
-            <input
-              v-model="newCategoryColor"
-              type="color"
-              class="w-12 h-12 rounded cursor-pointer"
-            />
-            <span class="text-sm text-muted">{{ newCategoryColor }}</span>
-          </div>
+          <ColorSwatchPicker v-model="newCategoryColor" />
         </div>
       </div>
     </DefineCreateCategoryTemplate>

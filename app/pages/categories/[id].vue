@@ -252,16 +252,7 @@ const saveChanges = async () => {
             <!-- Color Picker -->
             <div>
               <label class="block text-sm font-medium mb-2">Color</label>
-              <div class="flex items-center gap-3">
-                <input
-                  v-model="editedCategory.color"
-                  type="color"
-                  class="w-12 h-12 rounded cursor-pointer"
-                />
-                <span class="text-sm text-muted">{{
-                  editedCategory.color
-                }}</span>
-              </div>
+              <ColorSwatchPicker v-model="editedCategory.color" />
             </div>
 
             <!-- Description Textarea -->
