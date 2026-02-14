@@ -854,6 +854,7 @@ onBeforeUnmount(() => {
             v-model="allocationItems"
             :budget-period="budgetData.period"
             :period-start="budgetData.periodStart"
+            :fixed-expense-items="fixedExpenseItems"
           />
         </div>
 

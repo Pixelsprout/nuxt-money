@@ -80,6 +80,7 @@ function selectTransaction(transaction: any) {
   // Pre-populate form fields from transaction
   formData.name = transaction.description || "";
   formData.amount = Math.abs((transaction.amount as any)?.value || 0);
+  formData.categoryId = transaction.categoryId || null;
 
   // Pre-populate match patterns from transaction
   if (transaction.merchant) {
@@ -456,6 +457,27 @@ const totalMonthlyExpenses = computed(() => {
                 selectedTransaction.merchant
               }}</span>
             </div>
+          </div>
+          <div class="mt-3">
+            <label class="text-sm font-medium block mb-2">Category</label>
+            <USelectMenu
+              v-model="formData.categoryId"
+              :items="categories"
+              value-key="id"
+              label-key="name"
+              placeholder="Select a category"
+              searchable
+            >
+              <template #option="{ item }">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="w-3 h-3 rounded-full"
+                    :style="{ backgroundColor: item.color }"
+                  ></span>
+                  {{ item.name }}
+                </div>
+              </template>
+            </USelectMenu>
           </div>
         </div>
       </div>

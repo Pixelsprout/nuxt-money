@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { CategoryAllocation, TransactionCategory } from "#db/schema";
+import type {
+  CategoryAllocation,
+  FixedExpense,
+  TransactionCategory,
+} from "#db/schema";
 import { nanoid } from "nanoid";
 
 const modelValue = defineModel<CategoryAllocation[]>({ required: true });
@@ -7,6 +11,7 @@ const modelValue = defineModel<CategoryAllocation[]>({ required: true });
 const props = defineProps<{
   budgetPeriod: "MONTHLY" | "QUARTERLY" | "YEARLY";
   periodStart: Date;
+  fixedExpenseItems: FixedExpense[];
 }>();
 
 // Fetch categories
@@ -16,13 +21,46 @@ const { data: categoriesData } = await useFetch<{
 
 const categories = computed(() => categoriesData.value?.categories || []);
 
+// Normalize any frequency to a monthly amount (in cents)
+const normalizeToMonthly = (amountCents: number, frequency: string): number => {
+  switch (frequency) {
+    case "WEEKLY":
+      return Math.round(amountCents * 4.33);
+    case "FORTNIGHTLY":
+      return Math.round(amountCents * 2.17);
+    case "QUARTERLY":
+      return Math.round(amountCents / 3);
+    case "YEARLY":
+      return Math.round(amountCents / 12);
+    case "MONTHLY":
+    default:
+      return amountCents;
+  }
+};
+
+// Sum of fixed expenses per category (normalized to monthly, in cents)
+const fixedExpensesByCategory = computed(() => {
+  const map = new Map<string, number>();
+  props.fixedExpenseItems.forEach((expense) => {
+    if (expense.categoryId) {
+      const monthlyAmount = normalizeToMonthly(
+        expense.amount,
+        expense.frequency,
+      );
+      const current = map.get(expense.categoryId) || 0;
+      map.set(expense.categoryId, current + monthlyAmount);
+    }
+  });
+  return map;
+});
+
 // Track which categories have allocations
 const allocatedCategoryIds = computed(
-  () => new Set(modelValue.value.map((a) => a.categoryId))
+  () => new Set(modelValue.value.map((a) => a.categoryId)),
 );
 
 const unallocatedCategories = computed(() =>
-  categories.value.filter((c) => !allocatedCategoryIds.value.has(c.id))
+  categories.value.filter((c) => !allocatedCategoryIds.value.has(c.id)),
 );
 
 // Allocation amounts per category (in dollars for editing)
@@ -38,7 +76,7 @@ watch(
       }
     });
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const addAllocation = (categoryId: string) => {
@@ -83,7 +121,7 @@ const getCategoryById = (id: string) => {
 };
 
 const totalAllocations = computed(() =>
-  modelValue.value.reduce((sum, a) => sum + a.allocatedAmount, 0)
+  modelValue.value.reduce((sum, a) => sum + a.allocatedAmount, 0),
 );
 </script>
 
@@ -92,7 +130,8 @@ const totalAllocations = computed(() =>
     <div>
       <h2 class="text-xl font-semibold">Category Allocations</h2>
       <p class="text-muted mt-1">
-        Set budget limits for your spending categories like groceries, entertainment, etc.
+        Set budget limits for your spending categories like groceries,
+        entertainment, etc.
       </p>
     </div>
 
@@ -103,7 +142,12 @@ const totalAllocations = computed(() =>
           <thead class="bg-muted/50">
             <tr>
               <th class="px-4 py-2 text-left text-sm font-medium">Category</th>
-              <th class="px-4 py-2 text-left text-sm font-medium">Budget Amount</th>
+              <th class="px-4 py-2 text-right text-sm font-medium">
+                Fixed Expenses
+              </th>
+              <th class="px-4 py-2 text-left text-sm font-medium">
+                Additional Allocation
+              </th>
               <th class="px-4 py-2 text-right text-sm font-medium">Actions</th>
             </tr>
           </thead>
@@ -113,10 +157,24 @@ const totalAllocations = computed(() =>
                 <div class="flex items-center gap-2">
                   <span
                     class="w-3 h-3 rounded-full"
-                    :style="{ backgroundColor: getCategoryById(allocation.categoryId)?.color }"
+                    :style="{
+                      backgroundColor: getCategoryById(allocation.categoryId)
+                        ?.color,
+                    }"
                   ></span>
-                  <span>{{ getCategoryById(allocation.categoryId)?.name }}</span>
+                  <span>{{
+                    getCategoryById(allocation.categoryId)?.name
+                  }}</span>
                 </div>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <span class="text-sm text-muted">
+                  {{
+                    formatCurrency(
+                      fixedExpensesByCategory.get(allocation.categoryId) || 0,
+                    )
+                  }}
+                </span>
               </td>
               <td class="px-4 py-3">
                 <UInput
@@ -125,7 +183,9 @@ const totalAllocations = computed(() =>
                   min="0"
                   step="0.01"
                   class="w-32"
-                  @update:model-value="updateAmount(allocation.categoryId, $event as number)"
+                  @update:model-value="
+                    updateAmount(allocation.categoryId, $event as number)
+                  "
                 >
                   <template #leading>
                     <span class="text-muted text-sm">$</span>
@@ -182,9 +242,13 @@ const totalAllocations = computed(() =>
       </div>
     </div>
 
-    <div v-else-if="categories.length === 0" class="p-4 bg-warning/10 rounded-lg">
+    <div
+      v-else-if="categories.length === 0"
+      class="p-4 bg-warning/10 rounded-lg"
+    >
       <p class="text-sm text-warning">
-        You don't have any categories yet. Create some categories first to allocate budgets.
+        You don't have any categories yet. Create some categories first to
+        allocate budgets.
       </p>
     </div>
   </div>
