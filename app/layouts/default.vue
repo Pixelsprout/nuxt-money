@@ -2,10 +2,16 @@
   <UDashboardGroup unit="rem">
     <!-- Sidebar for desktop (hidden on mobile) -->
     <UDashboardSidebar collapsible resizable class="hidden sm:flex">
-      <template #header>
-        <NuxtLink to="/" class="flex items-center gap-2 px-4 py-3">
-          <AppLogo class="w-auto h-6 shrink-0" />
-        </NuxtLink>
+      <template #header="{ collapsed }">
+        <div
+          class="flex items-center justify-between py-3 flex-1"
+          :class="collapsed ? 'pl-1' : 'pl-4'"
+        >
+          <NuxtLink v-if="!collapsed" to="/" class="flex items-center gap-2">
+            <AppLogo class="w-auto h-6 shrink-0" />
+          </NuxtLink>
+          <UDashboardSidebarCollapse />
+        </div>
       </template>
 
       <UNavigationMenu
