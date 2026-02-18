@@ -109,6 +109,7 @@ export default defineEventHandler(async (event) => {
         transaction.description,
         transaction.meta?.other_account,
         categoryId,
+        transaction.amount?.value,
       );
     }
 

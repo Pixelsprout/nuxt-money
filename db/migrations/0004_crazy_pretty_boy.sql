@@ -1,0 +1,1 @@
+ALTER TABLE "transaction_reference" ADD COLUMN "amount_condition" jsonb;

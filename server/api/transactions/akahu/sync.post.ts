@@ -214,6 +214,7 @@ export default defineEventHandler(async (event) => {
           syncedTransaction.merchant,
           syncedTransaction.description,
           syncedTransaction.meta?.other_account,
+          syncedTransaction.amount?.value,
         );
 
         if (reference) {

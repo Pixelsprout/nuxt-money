@@ -84,6 +84,7 @@ const transactionColumns: TableColumn<AkahuTransaction>[] = [
 ];
 
 // State
+const referencesModalOpen = ref(false);
 const editMode = ref(false);
 const editedCategory = ref<{
   name: string;
@@ -313,11 +314,28 @@ const saveChanges = async () => {
           </template>
         </UDrawer>
 
+        <!-- Transaction References Modal -->
+        <TransactionReferencesModal
+          v-model:open="referencesModalOpen"
+          :category-id="categoryId"
+        />
+
         <!-- Transaction Section -->
         <div class="space-y-4">
-          <h2 class="text-xl font-bold">
-            Transactions using this category ({{ transactionCount }})
-          </h2>
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold">
+              Transactions using this category ({{ transactionCount }})
+            </h2>
+            <UButton
+              icon="i-lucide-settings-2"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              @click="referencesModalOpen = true"
+            >
+              Transaction References
+            </UButton>
+          </div>
 
           <div v-if="transactionsPending" class="text-center py-8">
             <p class="text-muted">Loading transactions...</p>

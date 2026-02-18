@@ -54,6 +54,11 @@ export const transactionCategory = pgTable("transaction_category", {
 
 export type TransactionCategory = InferSelectModel<typeof transactionCategory>;
 
+export type AmountCondition = {
+  operator: "gte" | "lte" | "eq" | "gt" | "lt";
+  value: number;
+};
+
 export const transactionReference = pgTable(
   "transaction_reference",
   {
@@ -71,6 +76,9 @@ export const transactionReference = pgTable(
     categoryId: text("category_id")
       .notNull()
       .references(() => transactionCategory.id, { onDelete: "cascade" }),
+
+    // Optional amount condition for auto-categorization
+    amountCondition: jsonb("amount_condition").$type<AmountCondition>(),
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
