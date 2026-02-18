@@ -6,6 +6,7 @@ import {
   timestamp,
   jsonb,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 export * from "./auth/auth";
 import { user } from "./auth/auth";
@@ -52,6 +53,42 @@ export const transactionCategory = pgTable("transaction_category", {
 });
 
 export type TransactionCategory = InferSelectModel<typeof transactionCategory>;
+
+export const transactionReference = pgTable(
+  "transaction_reference",
+  {
+    id: text("id").primaryKey(), // nanoid()
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // Transaction signature fields
+    merchant: text("merchant").notNull().default(""),
+    description: text("description").notNull(),
+    fromAccount: text("from_account").notNull().default(""),
+
+    // Category mapping
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => transactionCategory.id, { onDelete: "cascade" }),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_transaction_reference_unique").on(
+      table.userId,
+      table.merchant,
+      table.description,
+      table.fromAccount,
+    ),
+  ],
+);
+
+export type TransactionReference = InferSelectModel<
+  typeof transactionReference
+>;
 
 export const akahuTransaction = pgTable("akahu_transaction", {
   id: text("id").primaryKey(), // nanoid()

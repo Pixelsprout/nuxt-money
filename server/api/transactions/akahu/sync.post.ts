@@ -7,6 +7,7 @@ import {
   budgetIncomeTransaction,
 } from "#db/schema";
 import { getAkahuClient, getAkahuUserToken } from "#root/server/utils/akahu";
+import { lookupTransactionReference } from "#root/server/utils/transaction-reference";
 import { updateNextPayday } from "#root/server/utils/payday-calculator";
 import { nanoid } from "nanoid";
 import { eq, and } from "drizzle-orm";
@@ -204,6 +205,26 @@ export default defineEventHandler(async (event) => {
           .returning();
 
         syncedTransaction = inserted[0];
+      }
+
+      // Auto-categorize based on transaction references
+      if (!syncedTransaction.categoryId && syncedTransaction.description) {
+        const reference = await lookupTransactionReference(
+          session.user.id,
+          syncedTransaction.merchant,
+          syncedTransaction.description,
+          syncedTransaction.meta?.other_account,
+        );
+
+        if (reference) {
+          const categorized = await db
+            .update(akahuTransaction)
+            .set({ categoryId: reference.categoryId, updatedAt: new Date() })
+            .where(eq(akahuTransaction.id, syncedTransaction.id))
+            .returning();
+
+          syncedTransaction = categorized[0];
+        }
       }
 
       // Auto-tag income transactions

@@ -1,7 +1,12 @@
 import { auth } from "#root/lib/auth";
 import { useDrizzle } from "#utils/drizzle";
-import { akahuTransaction, akahuAccount, transactionCategory } from "#db/schema";
+import {
+  akahuTransaction,
+  akahuAccount,
+  transactionCategory,
+} from "#db/schema";
 import { eq } from "drizzle-orm";
+import { upsertTransactionReference } from "#root/server/utils/transaction-reference";
 
 export default defineEventHandler(async (event) => {
   // Validate session
@@ -95,6 +100,17 @@ export default defineEventHandler(async (event) => {
       })
       .where(eq(akahuTransaction.id, transactionId))
       .returning();
+
+    // Create/update transaction reference for future auto-categorization
+    if (categoryId && transaction.description) {
+      await upsertTransactionReference(
+        session.user.id,
+        transaction.merchant,
+        transaction.description,
+        transaction.meta?.other_account,
+        categoryId,
+      );
+    }
 
     return {
       success: true,
