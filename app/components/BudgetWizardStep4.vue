@@ -21,6 +21,16 @@ const { data: categoriesData } = await useFetch<{
 
 const categories = computed(() => categoriesData.value?.categories || []);
 
+// Fetch 3-month spending averages per category to pre-fill allocations
+const { data: averagesData } = await useFetch<{
+  suggestions: Array<{ categoryId: string; suggestedAmount: number }>;
+}>("/api/transactions/category-averages", {
+  query: {
+    periodStart: computed(() => props.periodStart.toISOString()),
+    period: computed(() => props.budgetPeriod),
+  },
+});
+
 // Normalize any frequency to a monthly amount (in cents)
 const normalizeToMonthly = (amountCents: number, frequency: string): number => {
   switch (frequency) {
@@ -79,18 +89,28 @@ watch(
   { immediate: true },
 );
 
+// Build a lookup map from categoryId → suggestedAmount (cents) for use in addAllocation
+const suggestedAmounts = computed(() => {
+  const map = new Map<string, number>();
+  for (const s of averagesData.value?.suggestions ?? []) {
+    map.set(s.categoryId, s.suggestedAmount);
+  }
+  return map;
+});
+
 const addAllocation = (categoryId: string) => {
+  const suggestedAmount = suggestedAmounts.value.get(categoryId) ?? 0;
   const allocation: CategoryAllocation = {
     id: nanoid(),
     budgetId: "",
     categoryId,
-    allocatedAmount: 0,
+    allocatedAmount: suggestedAmount,
     notes: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
   modelValue.value.push(allocation);
-  allocationAmounts[categoryId] = 0;
+  allocationAmounts[categoryId] = suggestedAmount / 100;
 };
 
 const removeAllocation = (categoryId: string) => {
