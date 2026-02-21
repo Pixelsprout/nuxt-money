@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useVirtualizer } from "@tanstack/vue-virtual";
 import type { FixedExpense, TransactionCategory } from "#db/schema";
 import { createReusableTemplate } from "@vueuse/core";
 import { nanoid } from "nanoid";
@@ -15,7 +16,8 @@ const props = defineProps<{
 const showModal = ref(false);
 const editingItem = ref<FixedExpense | null>(null);
 const entryMode = ref<"transaction" | "manual">("transaction");
-const selectedTransaction = ref<any>(null);
+const selectedTransactionIds = ref<Set<string>>(new Set());
+const selectedCount = computed(() => selectedTransactionIds.value.size);
 
 // Fetch categories
 const { data: categoriesData } = await useFetch<{
@@ -44,6 +46,26 @@ const searchTerm = ref("");
 const loadingTransactions = ref(false);
 const transactions = ref<any[]>([]);
 
+const filteredTransactions = computed(() => {
+  if (!searchTerm.value) return transactions.value;
+  const search = searchTerm.value.toLowerCase();
+  return transactions.value.filter(
+    (t: any) =>
+      t.description?.toLowerCase().includes(search) ||
+      t.merchant?.toLowerCase().includes(search),
+  );
+});
+
+const scrollContainerRef = ref<HTMLElement | null>(null);
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: filteredTransactions.value.length,
+    getScrollElement: () => scrollContainerRef.value,
+    estimateSize: () => 90,
+    overscan: 5,
+  })),
+);
+
 async function loadTransactions() {
   loadingTransactions.value = true;
   try {
@@ -61,33 +83,68 @@ async function loadTransactions() {
   }
 }
 
-const filteredTransactions = computed(() => {
-  let filtered = transactions.value;
-  if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase();
-    filtered = filtered.filter(
-      (t: any) =>
-        t.description.toLowerCase().includes(search) ||
-        t.merchant?.toLowerCase().includes(search),
-    );
+function toggleTransaction(transaction: any) {
+  const ids = new Set(selectedTransactionIds.value);
+  if (ids.has(transaction.id)) {
+    ids.delete(transaction.id);
+  } else {
+    ids.add(transaction.id);
   }
-  return filtered.slice(0, 50); // Limit to 50 for performance
+  selectedTransactionIds.value = ids;
+}
+
+function addSelectedTransactions() {
+  for (const id of selectedTransactionIds.value) {
+    const t = transactions.value.find((t) => t.id === id);
+    if (!t) continue;
+    const matchPattern: { merchant?: string; description?: string } | null =
+      t.merchant || t.description
+        ? {
+            ...(t.merchant && { merchant: t.merchant }),
+            ...(t.description && { description: t.description }),
+          }
+        : null;
+    const item: FixedExpense = {
+      id: nanoid(),
+      budgetId: "",
+      userId: "",
+      name: t.description || "",
+      amount: Math.round(Math.abs((t.amount as any)?.value || 0) * 100),
+      frequency: "MONTHLY",
+      categoryId: t.categoryId || null,
+      description: null,
+      matchPattern,
+      nextDueDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    modelValue.value.push(item);
+  }
+  showModal.value = false;
+  resetForm();
+}
+
+function handleAdd() {
+  if (entryMode.value === "transaction" && !editingItem.value) {
+    addSelectedTransactions();
+  } else {
+    saveItem();
+  }
+}
+
+const footerAddLabel = computed(() => {
+  if (editingItem.value) return "Update";
+  if (entryMode.value === "transaction") {
+    return selectedCount.value > 0 ? `Add ${selectedCount.value}` : "Add";
+  }
+  return "Add";
 });
 
-function selectTransaction(transaction: any) {
-  selectedTransaction.value = transaction;
-
-  // Pre-populate form fields from transaction
-  formData.name = transaction.description || "";
-  formData.amount = Math.abs((transaction.amount as any)?.value || 0);
-  formData.categoryId = transaction.categoryId || null;
-
-  // Pre-populate match patterns from transaction
-  if (transaction.merchant) {
-    formData.matchPatternMerchant = transaction.merchant;
-  }
-  formData.matchPatternDescription = transaction.description || "";
-}
+const isFooterAddDisabled = computed(() => {
+  if (editingItem.value) return false;
+  if (entryMode.value === "transaction") return selectedCount.value === 0;
+  return false;
+});
 
 function toggleToManual() {
   entryMode.value = "manual";
@@ -95,7 +152,7 @@ function toggleToManual() {
 
 function toggleToTransaction() {
   entryMode.value = "transaction";
-  selectedTransaction.value = null;
+  selectedTransactionIds.value = new Set();
 }
 
 const frequencyOptions = [
@@ -116,7 +173,7 @@ const resetForm = () => {
   formData.matchPatternDescription = "";
   editingItem.value = null;
   entryMode.value = "transaction";
-  selectedTransaction.value = null;
+  selectedTransactionIds.value = new Set();
   searchTerm.value = "";
 };
 
@@ -416,52 +473,87 @@ const totalMonthlyExpenses = computed(() => {
           </div>
         </div>
 
-        <div v-else class="space-y-2 max-h-96 overflow-y-auto">
+        <div
+          v-else
+          ref="scrollContainerRef"
+          class="max-h-96 overflow-y-auto"
+        >
           <div
-            v-for="transaction in filteredTransactions"
-            :key="transaction.id"
-            class="border rounded-lg p-3 cursor-pointer transition-colors"
-            :class="{
-              'border-primary-500 bg-primary-50':
-                selectedTransaction?.id === transaction.id,
-              'hover:border-gray-300':
-                selectedTransaction?.id !== transaction.id,
-            }"
-            @click="selectTransaction(transaction)"
+            :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }"
           >
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <p class="font-medium text-gray-900 text-sm">
-                  {{ transaction.description }}
-                </p>
-                <div class="flex items-center gap-4 mt-2 text-sm">
-                  <span class="text-gray-500">
-                    {{ new Date(transaction.date).toLocaleDateString() }}
-                  </span>
-                  <span class="text-red-600 font-semibold">
-                    {{
-                      new Intl.NumberFormat("en-NZ", {
-                        style: "currency",
-                        currency: "NZD",
-                      }).format(
-                        Math.abs((transaction.amount as any)?.value || 0),
+            <div
+              v-for="virtualRow in virtualizer.getVirtualItems()"
+              :key="virtualRow.index"
+              :ref="virtualizer.measureElement"
+              :data-index="virtualRow.index"
+              :style="{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+                paddingBottom: '8px',
+              }"
+            >
+              <div
+                class="border rounded-lg p-3 cursor-pointer transition-colors"
+                :class="{
+                  'border-primary bg-primary/5': selectedTransactionIds.has(
+                    filteredTransactions[virtualRow.index].id,
+                  ),
+                  'hover:border-gray-300': !selectedTransactionIds.has(
+                    filteredTransactions[virtualRow.index].id,
+                  ),
+                }"
+                @click="toggleTransaction(filteredTransactions[virtualRow.index])"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <p class="font-medium text-gray-900 text-sm">
+                      {{ filteredTransactions[virtualRow.index].description }}
+                    </p>
+                    <div class="flex items-center gap-4 mt-2 text-sm">
+                      <span class="text-gray-500">
+                        {{
+                          new Date(
+                            filteredTransactions[virtualRow.index].date,
+                          ).toLocaleDateString()
+                        }}
+                      </span>
+                      <span class="text-red-600 font-semibold">
+                        {{
+                          new Intl.NumberFormat("en-NZ", {
+                            style: "currency",
+                            currency: "NZD",
+                          }).format(
+                            Math.abs(
+                              (filteredTransactions[virtualRow.index].amount as any)
+                                ?.value || 0,
+                            ),
+                          )
+                        }}
+                      </span>
+                    </div>
+                    <div
+                      v-if="filteredTransactions[virtualRow.index].merchant"
+                      class="text-xs text-gray-400 mt-1"
+                    >
+                      Merchant:
+                      {{ filteredTransactions[virtualRow.index].merchant }}
+                    </div>
+                  </div>
+
+                  <UIcon
+                    v-if="
+                      selectedTransactionIds.has(
+                        filteredTransactions[virtualRow.index].id,
                       )
-                    }}
-                  </span>
-                </div>
-                <div
-                  v-if="transaction.merchant"
-                  class="text-xs text-gray-400 mt-1"
-                >
-                  Merchant: {{ transaction.merchant }}
+                    "
+                    name="i-heroicons-check-circle-solid"
+                    class="text-primary text-xl flex-shrink-0"
+                  />
                 </div>
               </div>
-
-              <UIcon
-                v-if="selectedTransaction?.id === transaction.id"
-                name="i-heroicons-check-circle-solid"
-                class="text-primary-500 text-xl flex-shrink-0"
-              />
             </div>
           </div>
 
@@ -473,63 +565,9 @@ const totalMonthlyExpenses = computed(() => {
           </div>
         </div>
 
-        <!-- Selected Transaction Summary -->
-        <div
-          v-if="selectedTransaction"
-          class="border-t pt-4 mt-4 bg-gray-50 p-4"
-        >
-          <h4 class="font-medium text-sm mb-2">Selected Transaction</h4>
-          <div class="space-y-1 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600">Description:</span>
-              <span class="font-medium">{{
-                selectedTransaction.description
-              }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600">Amount:</span>
-              <span class="font-medium text-red-600">
-                {{
-                  new Intl.NumberFormat("en-NZ", {
-                    style: "currency",
-                    currency: "NZD",
-                  }).format(
-                    Math.abs((selectedTransaction.amount as any)?.value || 0),
-                  )
-                }}
-              </span>
-            </div>
-            <div
-              v-if="selectedTransaction.merchant"
-              class="flex justify-between"
-            >
-              <span class="text-gray-600">Merchant:</span>
-              <span class="font-medium">{{
-                selectedTransaction.merchant
-              }}</span>
-            </div>
-          </div>
-          <div class="mt-3">
-            <label class="text-sm font-medium block mb-2">Category</label>
-            <USelectMenu
-              v-model="formData.categoryId"
-              :items="categories"
-              value-key="id"
-              label-key="name"
-              placeholder="Select a category"
-              searchable
-            >
-              <template #option="{ item }">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="w-3 h-3 rounded-full"
-                    :style="{ backgroundColor: item.color }"
-                  ></span>
-                  {{ item.name }}
-                </div>
-              </template>
-            </USelectMenu>
-          </div>
+        <div v-if="selectedCount > 0" class="text-sm text-muted pt-1">
+          {{ selectedCount }}
+          {{ selectedCount === 1 ? "transaction" : "transactions" }} selected
         </div>
       </div>
 
@@ -654,8 +692,8 @@ const totalMonthlyExpenses = computed(() => {
           <UButton variant="outline" color="neutral" @click="close">
             Cancel
           </UButton>
-          <UButton @click="saveItem">
-            {{ editingItem ? "Update" : "Add" }}
+          <UButton :disabled="isFooterAddDisabled" @click="handleAdd">
+            {{ footerAddLabel }}
           </UButton>
         </div>
       </template>
@@ -679,8 +717,12 @@ const totalMonthlyExpenses = computed(() => {
         >
           Cancel
         </UButton>
-        <UButton class="justify-center" @click="saveItem">
-          {{ editingItem ? "Update" : "Add" }}
+        <UButton
+          class="justify-center"
+          :disabled="isFooterAddDisabled"
+          @click="handleAdd"
+        >
+          {{ footerAddLabel }}
         </UButton>
       </template>
     </UDrawer>
