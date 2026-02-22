@@ -56,6 +56,31 @@ const filteredTransactions = computed(() => {
   );
 });
 
+const alreadyMatchedTransactionIds = computed(() => {
+  const ids = new Set<string>();
+  for (const expense of modelValue.value) {
+    const pattern = expense.matchPattern as {
+      merchant?: string;
+      description?: string;
+    } | null;
+    if (!pattern) continue;
+    for (const t of transactions.value) {
+      const merchantMatch =
+        pattern.merchant && t.merchant === pattern.merchant;
+      const descriptionMatch =
+        pattern.description && t.description === pattern.description;
+      if (pattern.merchant && pattern.description) {
+        if (merchantMatch && descriptionMatch) ids.add(t.id);
+      } else if (pattern.merchant) {
+        if (merchantMatch) ids.add(t.id);
+      } else if (pattern.description) {
+        if (descriptionMatch) ids.add(t.id);
+      }
+    }
+  }
+  return ids;
+});
+
 const scrollContainerRef = ref<HTMLElement | null>(null);
 const virtualizer = useVirtualizer(
   computed(() => ({
@@ -84,6 +109,7 @@ async function loadTransactions() {
 }
 
 function toggleTransaction(transaction: any) {
+  if (alreadyMatchedTransactionIds.value.has(transaction.id)) return;
   const ids = new Set(selectedTransactionIds.value);
   if (ids.has(transaction.id)) {
     ids.delete(transaction.id);
@@ -496,12 +522,17 @@ const totalMonthlyExpenses = computed(() => {
               }"
             >
               <div
-                class="border rounded-lg p-3 cursor-pointer transition-colors"
+                class="border rounded-lg p-3 transition-colors"
                 :class="{
-                  'border-primary bg-primary/5': selectedTransactionIds.has(
+                  'border-primary bg-primary/5 cursor-pointer': selectedTransactionIds.has(
                     filteredTransactions[virtualRow.index].id,
                   ),
-                  'hover:border-gray-300': !selectedTransactionIds.has(
+                  'opacity-50 cursor-not-allowed bg-muted/30': alreadyMatchedTransactionIds.has(
+                    filteredTransactions[virtualRow.index].id,
+                  ),
+                  'hover:border-gray-300 cursor-pointer': !selectedTransactionIds.has(
+                    filteredTransactions[virtualRow.index].id,
+                  ) && !alreadyMatchedTransactionIds.has(
                     filteredTransactions[virtualRow.index].id,
                   ),
                 }"
@@ -543,12 +574,17 @@ const totalMonthlyExpenses = computed(() => {
                     </div>
                   </div>
 
+                  <UBadge
+                    v-if="alreadyMatchedTransactionIds.has(filteredTransactions[virtualRow.index].id)"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                    class="flex-shrink-0"
+                  >
+                    Already Added
+                  </UBadge>
                   <UIcon
-                    v-if="
-                      selectedTransactionIds.has(
-                        filteredTransactions[virtualRow.index].id,
-                      )
-                    "
+                    v-else-if="selectedTransactionIds.has(filteredTransactions[virtualRow.index].id)"
                     name="i-heroicons-check-circle-solid"
                     class="text-primary text-xl flex-shrink-0"
                   />
