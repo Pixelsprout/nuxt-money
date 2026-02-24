@@ -1,32 +1,13 @@
 <script setup lang="ts">
-import type { AkahuAccount } from "#db/schema";
+import { useQuery } from "zero-vue";
+import { queries } from "~/db/zero-queries";
 
 definePageMeta({ layout: "default" });
 
 const showModal = ref(false);
-const loading = ref(false);
 
-const { data: accountsData, refresh } = await useFetch<{
-  success: boolean;
-  accounts: AkahuAccount[];
-}>("/api/accounts/synced");
-
-const accounts = computed<AkahuAccount[]>(() => {
-  return accountsData.value?.accounts || [];
-});
-
-const refreshAccounts = async () => {
-  loading.value = true;
-  try {
-    await refresh();
-  } finally {
-    loading.value = false;
-  }
-};
-
-onMounted(() => {
-  refreshAccounts();
-});
+const z = useZero();
+const { data: accounts, status } = useQuery(z, () => queries.accounts.list());
 </script>
 
 <template>
@@ -48,7 +29,10 @@ onMounted(() => {
         </div>
 
         <!-- Loading State -->
-        <div v-if="loading" class="text-center py-12 text-muted">
+        <div
+          v-if="status === 'unknown' && accounts.length === 0"
+          class="text-center py-12 text-muted"
+        >
           Loading accounts...
         </div>
 
@@ -74,13 +58,11 @@ onMounted(() => {
             v-for="account in accounts"
             :key="account.id"
             :account="account"
-            @deleted="refreshAccounts"
-            @synced="refreshAccounts"
           />
         </div>
 
         <!-- Sync Modal -->
-        <AkahuSyncModal v-model:open="showModal" @synced="refreshAccounts" />
+        <AkahuSyncModal v-model:open="showModal" />
       </div>
     </template>
   </UDashboardPanel>

@@ -21,7 +21,9 @@
     "db:migrate:prod": "tsx scripts/migrate-production.ts",
     "db:studio": "drizzle-kit studio --config ./config/drizzle.config.ts",
     "db:seed:invite": "tsx scripts/seed-invite.ts",
-    "db:seed:budget": "tsx scripts/seed-budget.ts"
+    "db:seed:budget": "tsx scripts/seed-budget.ts",
+    "dev:zero-cache": "npx zero-cache",
+    "zero:generate": "drizzle-zero generate --config ./config/drizzle-zero.config.ts --output ./app/db/zero-schema.gen.ts --format --suppress-defaults-warning"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.82",
@@ -30,14 +32,17 @@
     "@nuxt/image": "2.0.0",
     "@nuxt/test-utils": "3.23.0",
     "@nuxt/ui": "^4.3.0",
+    "@rocicorp/zero": "^0.25.12",
     "akahu": "^2.4.0",
     "better-auth": "^1.4.13",
     "drizzle-orm": "^0.45.1",
+    "jose": "^6.1.3",
     "kysely": "^0.28.9",
     "nanoid": "^5.1.6",
     "nuxt": "^4.2.2",
     "pg": "^8.14.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "zero-vue": "^0.7.1"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",
@@ -46,6 +51,7 @@
     "@vue/test-utils": "^2.4.6",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
+    "drizzle-zero": "^0.17.4",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
@@ -57,5 +63,10 @@
     "vitest": "^4.0.17",
     "vue-tsc": "^3.2.1"
   },
-  "packageManager": "pnpm@10.26.1"
+  "packageManager": "pnpm@10.26.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@rocicorp/zero-sqlite3"
+    ]
+  }
 }

@@ -35,3 +35,7 @@ coverage/
 playwright-report/
 test-results/
 .env.production
+zero.db
+zero.db-shm
+zero.db-wal
+zero.db-wal2
