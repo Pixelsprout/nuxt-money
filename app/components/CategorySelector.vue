@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TransactionCategory } from "#db/schema";
 import { createReusableTemplate } from "@vueuse/core";
+import { nanoid } from "nanoid";
 
 const [DefineCreateCategoryTemplate, ReuseCreateCategoryTemplate] =
   createReusableTemplate();
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
+const z = useZero();
 const loading = ref(false);
 const showCreateModal = ref(false);
 const newCategoryName = ref("");
@@ -86,26 +88,20 @@ const updateTransactionCategory = async (
   loading.value = true;
 
   try {
-    const response = await $fetch<{
-      success: boolean;
-    }>(`/api/transactions/${props.transactionId}/category`, {
-      method: "PATCH",
-      body: {
-        categoryId,
-      },
+    await z.mutate.transactions.assignCategory({
+      transactionId: props.transactionId,
+      categoryId,
     });
 
-    if (response.success) {
-      emit("update:modelValue", categoryId);
-      emit("updated");
+    emit("update:modelValue", categoryId);
+    emit("updated");
 
-      if (showToast) {
-        toast.add({
-          title: "Category updated",
-          color: "success",
-          icon: "i-lucide-check-circle",
-        });
-      }
+    if (showToast) {
+      toast.add({
+        title: "Category updated",
+        color: "success",
+        icon: "i-lucide-check-circle",
+      });
     }
   } catch (error: any) {
     console.error("Failed to update category:", error);
@@ -141,35 +137,31 @@ const handleCreate = async () => {
   loading.value = true;
 
   try {
-    const response = await $fetch<{
-      success: boolean;
-      category: TransactionCategory;
-    }>("/api/categories/create", {
-      method: "POST",
-      body: {
-        name: newCategoryName.value.trim(),
-        color: newCategoryColor.value,
-      },
+    const now = Date.now();
+    const newId = nanoid();
+
+    await z.mutate.categories.create({
+      id: newId,
+      name: newCategoryName.value.trim(),
+      color: newCategoryColor.value,
+      createdAt: now,
+      updatedAt: now,
     });
 
-    if (response.success) {
-      toast.add({
-        title: "Category created and assigned",
-        color: "success",
-        icon: "i-lucide-check-circle",
-      });
+    toast.add({
+      title: "Category created and assigned",
+      color: "success",
+      icon: "i-lucide-check-circle",
+    });
 
-      // Close modal
-      showCreateModal.value = false;
-      newCategoryName.value = "";
-      searchTerm.value = "";
+    showCreateModal.value = false;
+    newCategoryName.value = "";
+    searchTerm.value = "";
 
-      // Emit created event so parent can refresh categories
-      emit("created");
+    emit("created");
 
-      // Assign the new category to this transaction (without showing another toast)
-      await updateTransactionCategory(response.category.id, false);
-    }
+    // Assign the new category to this transaction (without showing another toast)
+    await updateTransactionCategory(newId, false);
   } catch (error: any) {
     console.error("Failed to create category:", error);
     toast.add({

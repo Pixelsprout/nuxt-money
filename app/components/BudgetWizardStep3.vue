@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useVirtualizer } from "@tanstack/vue-virtual";
+import { useQuery } from "zero-vue";
 import type { FixedExpense, TransactionCategory } from "#db/schema";
 import { createReusableTemplate } from "@vueuse/core";
 import { nanoid } from "nanoid";
+import { queries } from "~/db/zero-queries";
 
 const [DefineFormTemplate, ReuseFormTemplate] = createReusableTemplate();
 const isDesktop = useSSRMediaQuery("(min-width: 768px)");
@@ -19,12 +21,12 @@ const entryMode = ref<"transaction" | "manual">("transaction");
 const selectedTransactionIds = ref<Set<string>>(new Set());
 const selectedCount = computed(() => selectedTransactionIds.value.size);
 
-// Fetch categories
-const { data: categoriesData } = await useFetch<{
-  categories: TransactionCategory[];
-}>("/api/categories");
-
-const categories = computed(() => categoriesData.value?.categories || []);
+// Fetch categories from Zero
+const z = useZero();
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
 
 const formData = reactive({
   name: "",
@@ -41,10 +43,18 @@ const formData = reactive({
   matchPatternDescription: "",
 });
 
-// Transaction selector for picking expenses
+// Transaction selector — load from Zero
 const searchTerm = ref("");
-const loadingTransactions = ref(false);
-const transactions = ref<any[]>([]);
+
+const { data: allTransactions } = useQuery(
+  z,
+  () => queries.transactions.all({ userID: z.userID }),
+);
+
+// Filter to DEBIT transactions only for expenses
+const transactions = computed(() =>
+  allTransactions.value.filter((t) => t.type === "DEBIT"),
+);
 
 const filteredTransactions = computed(() => {
   if (!searchTerm.value) return transactions.value;
@@ -91,22 +101,6 @@ const virtualizer = useVirtualizer(
   })),
 );
 
-async function loadTransactions() {
-  loadingTransactions.value = true;
-  try {
-    const { data } = await useFetch<{
-      success: boolean;
-      transactions: any[];
-    }>("/api/transactions/all", {
-      query: { type: "DEBIT" }, // Only show DEBIT transactions for expenses
-    });
-    transactions.value = data.value?.transactions || [];
-  } catch (err) {
-    console.error("Failed to load transactions:", err);
-  } finally {
-    loadingTransactions.value = false;
-  }
-}
 
 function toggleTransaction(transaction: any) {
   if (alreadyMatchedTransactionIds.value.has(transaction.id)) return;
@@ -206,7 +200,6 @@ const resetForm = () => {
 const openAddModal = () => {
   resetForm();
   showModal.value = true;
-  loadTransactions(); // Load transactions when modal opens
 };
 
 const openEditModal = (item: FixedExpense) => {
@@ -488,15 +481,11 @@ const totalMonthlyExpenses = computed(() => {
         />
 
         <div
-          v-if="loadingTransactions"
-          class="flex items-center justify-center py-8"
+          v-if="filteredTransactions.length === 0"
+          class="text-center py-8 text-gray-500"
         >
-          <div class="text-center">
-            <div
-              class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
-            ></div>
-            <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
-          </div>
+          <p>No transactions found</p>
+          <p class="text-sm mt-1">Try adjusting your search</p>
         </div>
 
         <div

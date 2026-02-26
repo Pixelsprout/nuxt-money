@@ -12,6 +12,7 @@ const emit = defineEmits<{
 }>();
 
 const deleting = ref(false);
+const z = useZero();
 
 const lastUpdated = computed(() => {
   if (props.category.updatedAt) {
@@ -27,9 +28,7 @@ const handleDelete = async () => {
 
   deleting.value = true;
   try {
-    await $fetch(`/api/categories/${props.category.id}`, {
-      method: "DELETE",
-    });
+    await z.mutate.categories.delete({ id: props.category.id });
     emit("deleted");
     await navigateTo("/categories");
   } catch (error) {

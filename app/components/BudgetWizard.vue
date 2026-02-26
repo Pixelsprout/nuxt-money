@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from "vue";
+import { onMounted, onBeforeUnmount, toRaw } from "vue";
+import { useQuery } from "zero-vue";
+import { nanoid } from "nanoid";
 import type {
   Budget,
   BudgetIncome,
   FixedExpense,
   CategoryAllocation,
 } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 // Extend types to track IDs for edit mode
 type TrackableIncome = BudgetIncome & { _id?: string };
@@ -21,13 +24,14 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
+const z = useZero();
 const toast = useToast();
 const route = useRoute();
 const router = useRouter();
 
 // Initialize currentStep from URL query parameter, default to 0
 const initialStep = parseInt(route.query.step as string) || 0;
-const currentStep = ref(Math.max(0, Math.min(initialStep, 4))); // Clamp between 0-4
+const currentStep = ref(Math.max(0, Math.min(initialStep, 4)));
 
 const isSubmitting = ref(false);
 const isDirty = ref(false);
@@ -35,6 +39,7 @@ const draftBudgetId = ref<string | null>(null);
 const allowNavigation = ref(false);
 const showUnsavedChangesDialog = ref(false);
 const budgetStatus = ref<string | null>(null);
+const isDataPopulated = ref(false);
 
 // Edit mode detection
 const isEditMode = computed(() => !!props.budgetId);
@@ -45,21 +50,25 @@ const deletedIncomeIds = ref<string[]>([]);
 const deletedExpenseIds = ref<string[]>([]);
 const deletedAllocationIds = ref<string[]>([]);
 
-// Budget state - initialize with stable dates to avoid hydration mismatch
+// Budget state
+const _now = new Date();
+const _defaultStart = new Date(
+  _now.getFullYear(),
+  _now.getMonth(),
+  _now.getDate() + 1,
+);
 const budgetData = reactive({
   name: "",
   period: "MONTHLY" as "MONTHLY" | "QUARTERLY" | "YEARLY",
-  periodStart: new Date(0), // Will be set in updatePeriodDates or from fetched data
-  periodEnd: new Date(0), // Will be set in updatePeriodDates or from fetched data
+  periodStart: _defaultStart,
+  periodEnd: new Date(_now.getFullYear(), _now.getMonth() + 1, _now.getDate()),
 });
 
-// Calculate period end date based on start date and period type
 const calculatePeriodEnd = (
   start: Date,
   periodType: "MONTHLY" | "QUARTERLY" | "YEARLY",
 ) => {
   const end = new Date(start);
-
   switch (periodType) {
     case "QUARTERLY":
       end.setMonth(end.getMonth() + 3);
@@ -74,11 +83,9 @@ const calculatePeriodEnd = (
       end.setMonth(end.getMonth() + 1);
       end.setDate(end.getDate() - 1);
   }
-
   return end;
 };
 
-// Set default period dates
 const updatePeriodDates = () => {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -86,11 +93,10 @@ const updatePeriodDates = () => {
   budgetData.periodEnd = calculatePeriodEnd(start, budgetData.period);
 };
 
-// Watch for period type changes to recalculate end date
 watch(
   () => budgetData.period,
   (newPeriod) => {
-    if (!isLoadingData.value) {
+    if (isDataPopulated.value) {
       budgetData.periodEnd = calculatePeriodEnd(
         budgetData.periodStart,
         newPeriod,
@@ -99,22 +105,21 @@ watch(
   },
 );
 
-// Watch for period start changes to recalculate end date
 watch(
   () => budgetData.periodStart,
   (newStart) => {
-    if (!isLoadingData.value) {
+    if (isDataPopulated.value) {
       budgetData.periodEnd = calculatePeriodEnd(newStart, budgetData.period);
     }
   },
 );
 
-// Income, expenses, and allocations
+// Income, expenses, and allocations in local wizard state
 const incomeItems = ref<TrackableIncome[]>([]);
 const fixedExpenseItems = ref<TrackableExpense[]>([]);
 const allocationItems = ref<TrackableAllocation[]>([]);
 
-// Track dirty state for unsaved changes
+// Track dirty state
 watch(
   () => ({
     budgetData: { ...budgetData },
@@ -123,15 +128,14 @@ watch(
     allocationItems: allocationItems.value,
   }),
   () => {
-    // Don't mark as dirty if still loading data or if budgetDataResponse hasn't loaded yet
-    if (!isLoadingData.value && (!props.budgetId || budgetDataResponse.value)) {
+    if (isDataPopulated.value) {
       isDirty.value = true;
     }
   },
   { deep: true },
 );
 
-// Track deletions when items are removed
+// Track deletions when items are removed in edit mode
 const trackPreviousItems = () => {
   const previousIncome = [...incomeItems.value];
   const previousExpenses = [...fixedExpenseItems.value];
@@ -188,98 +192,144 @@ const trackPreviousItems = () => {
   );
 };
 
-// Load existing budget data in edit mode
-const {
-  data: budgetDataResponse,
-  pending: isLoadingData,
-  error: budgetLoadError,
-} = await useFetch<{
-  budget: Budget;
-  income: BudgetIncome[];
-  fixedExpenses: FixedExpense[];
-  allocations: CategoryAllocation[];
-}>(() => (props.budgetId ? `/api/budgets/${props.budgetId}` : null), {
-  key: `budget-${props.budgetId}`,
-  lazy: false,
-  immediate: !!props.budgetId,
+// Load existing budget data from Zero when in edit mode
+const { data: zeroBudgets, status: budgetsStatus } = useQuery(z, () =>
+  props.budgetId
+    ? queries.budgets.byId({ id: props.budgetId }, { userID: z.userID })
+    : queries.budgets.list({ userID: z.userID }),
+);
+const { data: zeroIncomeItems, status: incomeStatus } = useQuery(z, () =>
+  props.budgetId
+    ? queries.budgetIncome.byBudget(
+        { budgetId: props.budgetId },
+        { userID: z.userID },
+      )
+    : queries.budgetIncome.byBudget(
+        { budgetId: "__none__" },
+        { userID: z.userID },
+      ),
+);
+const { data: zeroExpenseItems, status: expensesStatus } = useQuery(z, () =>
+  props.budgetId
+    ? queries.fixedExpenses.byBudget(
+        { budgetId: props.budgetId },
+        { userID: z.userID },
+      )
+    : queries.fixedExpenses.byBudget(
+        { budgetId: "__none__" },
+        { userID: z.userID },
+      ),
+);
+const { data: zeroAllocationItems, status: allocationsStatus } = useQuery(
+  z,
+  () =>
+    props.budgetId
+      ? queries.categoryAllocations.byBudget(
+          { budgetId: props.budgetId },
+          { userID: z.userID },
+        )
+      : queries.categoryAllocations.byBudget(
+          { budgetId: "__none__" },
+          { userID: z.userID },
+        ),
+);
+
+const isLoadingData = computed(() => {
+  if (!props.budgetId) return false;
+  if (isDataPopulated.value) return false;
+  // Still loading until all four Zero queries have resolved
+  return (
+    budgetsStatus.value !== "complete" ||
+    incomeStatus.value !== "complete" ||
+    expensesStatus.value !== "complete" ||
+    allocationsStatus.value !== "complete"
+  );
 });
 
-// Handle fetch errors
-watch(budgetLoadError, (error) => {
-  if (error && import.meta.client) {
-    console.error("Error loading budget data:", error);
-    toast.add({
-      title: "Error",
-      description: error.data?.message || "Failed to load budget data",
-      color: "error",
-    });
-  }
-});
-
-// Populate data when loaded
+// Populate local state from Zero data when editing.
+// All four data sources and their statuses are watched together to avoid
+// populating with empty arrays before Zero has finished its initial sync.
 watch(
-  budgetDataResponse,
-  (response) => {
-    if (!response) return;
+  [
+    zeroBudgets,
+    zeroIncomeItems,
+    zeroExpenseItems,
+    zeroAllocationItems,
+    budgetsStatus,
+    incomeStatus,
+    expensesStatus,
+    allocationsStatus,
+  ],
+  ([
+    budgets,
+    income,
+    expenses,
+    allocations,
+    bStatus,
+    iStatus,
+    eStatus,
+    aStatus,
+  ]) => {
+    if (!props.budgetId) return;
+    const budget = budgets[0];
+    if (!budget) return;
 
-    // Populate budget metadata
-    budgetData.name = response.budget.name;
-    budgetData.period = response.budget.period as
-      | "MONTHLY"
-      | "QUARTERLY"
-      | "YEARLY";
-    budgetData.periodStart = new Date(response.budget.periodStart);
-    budgetData.periodEnd = new Date(response.budget.periodEnd);
-    budgetStatus.value = response.budget.status;
+    // Keep status / id in sync whenever the budget record updates
+    budgetStatus.value = budget.status;
+    draftBudgetId.value = budget.id;
 
-    // Populate items with _id tracking
-    incomeItems.value = response.income.map((item) => ({
+    if (isDataPopulated.value) return;
+
+    // Wait until all queries have finished their initial sync so that empty
+    // arrays are truly empty rather than "not yet loaded".
+    if (
+      bStatus !== "complete" ||
+      iStatus !== "complete" ||
+      eStatus !== "complete" ||
+      aStatus !== "complete"
+    )
+      return;
+
+    budgetData.name = budget.name;
+    budgetData.period = budget.period as "MONTHLY" | "QUARTERLY" | "YEARLY";
+    budgetData.periodStart = new Date(budget.periodStart);
+    budgetData.periodEnd = new Date(budget.periodEnd);
+
+    incomeItems.value = income.map((item) => ({ ...item, _id: item.id }));
+    fixedExpenseItems.value = expenses.map((item) => ({
+      ...item,
+      _id: item.id,
+    }));
+    allocationItems.value = allocations.map((item) => ({
       ...item,
       _id: item.id,
     }));
 
-    fixedExpenseItems.value = response.fixedExpenses.map((item) => ({
-      ...item,
-      _id: item.id,
-    }));
-
-    allocationItems.value = response.allocations.map((item) => ({
-      ...item,
-      _id: item.id,
-    }));
-
-    // Set draft budget ID for save operations
-    draftBudgetId.value = props.budgetId;
-
-    // Mark as not dirty after loading
+    isDataPopulated.value = true;
     isDirty.value = false;
+
+    if (isEditMode.value) {
+      trackPreviousItems();
+    }
   },
   { immediate: true },
 );
 
-// Watch currentStep and update URL query parameter
+// Watch currentStep and update URL
 watch(currentStep, (newStep) => {
-  router.replace({
-    query: {
-      ...route.query,
-      step: newStep.toString(),
-    },
-  });
+  router.replace({ query: { ...route.query, step: newStep.toString() } });
 });
 
-// Calculated totals
+// Totals
 const totalIncome = computed(() =>
   incomeItems.value.reduce((sum, item) => sum + item.amount, 0),
 );
-
 const totalFixedExpenses = computed(() =>
   fixedExpenseItems.value.reduce((sum, item) => sum + item.amount, 0),
 );
-
 const totalAllocations = computed(() =>
   allocationItems.value.reduce((sum, item) => sum + item.allocatedAmount, 0),
 );
-
 const surplus = computed(
   () => totalIncome.value - totalFixedExpenses.value - totalAllocations.value,
 );
@@ -293,105 +343,188 @@ const steps = [
   { value: 4, title: "Review", description: "Confirm and create" },
 ];
 
-// Navigation
 const canGoNext = computed(() => {
   switch (currentStep.value) {
     case 0:
       return budgetData.name.trim().length > 0;
-    case 1:
-      return true; // Income is optional
-    case 2:
-      return true; // Fixed expenses are optional
-    case 3:
-      return true; // Allocations are optional
     default:
       return true;
   }
 });
 
 const goNext = () => {
-  if (currentStep.value < 4 && canGoNext.value) {
-    currentStep.value++;
-  }
+  if (currentStep.value < 4 && canGoNext.value) currentStep.value++;
 };
 
 const goPrev = () => {
-  if (currentStep.value > 0) {
-    currentStep.value--;
+  if (currentStep.value > 0) currentStep.value--;
+};
+
+// Helper: apply income/expense/allocation mutations for a given budgetId
+const applyMutations = async (
+  targetBudgetId: string,
+  status: string,
+  isUpdate: boolean,
+) => {
+  const now = Date.now();
+
+  if (isUpdate) {
+    // Update budget metadata
+    await z.mutate.budgets.update({
+      id: targetBudgetId,
+      name: budgetData.name,
+      period: budgetData.period,
+      periodStart: budgetData.periodStart.getTime(),
+      periodEnd: budgetData.periodEnd.getTime(),
+      status,
+      updatedAt: now,
+    });
+  } else {
+    // Create budget
+    await z.mutate.budgets.create({
+      id: targetBudgetId,
+      name: budgetData.name,
+      period: budgetData.period,
+      periodStart: budgetData.periodStart.getTime(),
+      periodEnd: budgetData.periodEnd.getTime(),
+      status,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Handle income items
+  for (const income of incomeItems.value) {
+    if (income._id) {
+      await z.mutate.budgetIncome.update({
+        id: income._id,
+        name: income.name,
+        amount: income.amount,
+        frequency: income.frequency,
+        notes: income.notes ?? null,
+        expectedFromAccount: income.expectedFromAccount ?? null,
+        autoTagEnabled: income.autoTagEnabled ?? true,
+        adjustForWeekends: income.adjustForWeekends ?? true,
+        updatedAt: now,
+      });
+    } else {
+      await z.mutate.budgetIncome.create({
+        id: nanoid(),
+        budgetId: targetBudgetId,
+        name: income.name,
+        amount: income.amount,
+        frequency: income.frequency,
+        notes: income.notes ?? null,
+        expectedFromAccount: income.expectedFromAccount ?? null,
+        autoTagEnabled: income.autoTagEnabled ?? true,
+        adjustForWeekends: income.adjustForWeekends ?? true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  for (const incomeId of deletedIncomeIds.value) {
+    await z.mutate.budgetIncome.delete({ id: incomeId });
+  }
+
+  // Handle fixed expenses
+  for (const expense of fixedExpenseItems.value) {
+    if (expense._id) {
+      await z.mutate.fixedExpenses.update({
+        id: expense._id,
+        name: expense.name,
+        amount: expense.amount,
+        frequency: expense.frequency,
+        categoryId: expense.categoryId ?? null,
+        description: expense.description ?? null,
+        matchPattern: expense.matchPattern
+          ? { ...toRaw(expense.matchPattern) }
+          : null,
+        updatedAt: now,
+      });
+    } else {
+      await z.mutate.fixedExpenses.create({
+        id: nanoid(),
+        budgetId: targetBudgetId,
+        name: expense.name,
+        amount: expense.amount,
+        frequency: expense.frequency,
+        categoryId: expense.categoryId ?? null,
+        description: expense.description ?? null,
+        matchPattern: expense.matchPattern
+          ? { ...toRaw(expense.matchPattern) }
+          : null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  for (const expenseId of deletedExpenseIds.value) {
+    await z.mutate.fixedExpenses.delete({ id: expenseId });
+  }
+
+  // Handle allocations
+  for (const allocation of allocationItems.value) {
+    if (allocation._id) {
+      await z.mutate.allocations.update({
+        id: allocation._id,
+        allocatedAmount: allocation.allocatedAmount,
+        notes: allocation.notes ?? null,
+        updatedAt: now,
+      });
+    } else {
+      await z.mutate.allocations.create({
+        id: nanoid(),
+        budgetId: targetBudgetId,
+        categoryId: allocation.categoryId,
+        allocatedAmount: allocation.allocatedAmount,
+        notes: allocation.notes ?? null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  for (const allocationId of deletedAllocationIds.value) {
+    await z.mutate.allocations.delete({ id: allocationId });
   }
 };
 
-// Submit budget (create mode)
+// Submit budget (create or edit)
 const submitBudget = async () => {
   isSubmitting.value = true;
 
   try {
-    // Create the budget
-    const { budget } = await $fetch<{ budget: Budget }>("/api/budgets/create", {
-      method: "POST",
-      body: {
-        name: budgetData.name,
-        period: budgetData.period,
-        periodStart: budgetData.periodStart.toISOString(),
-        periodEnd: budgetData.periodEnd.toISOString(),
-      },
-    });
+    const budgetId = props.budgetId || draftBudgetId.value || nanoid();
+    const isUpdate = !!(props.budgetId || draftBudgetId.value);
 
-    // Add income items
-    for (const income of incomeItems.value) {
-      await $fetch(`/api/budgets/${budget.id}/income/create`, {
-        method: "POST",
-        body: {
-          name: income.name,
-          amount: income.amount,
-          frequency: income.frequency,
-          notes: income.notes,
-          expectedFromAccount: income.expectedFromAccount,
-          autoTagEnabled: income.autoTagEnabled,
-          adjustForWeekends: income.adjustForWeekends,
-        },
-      });
-    }
-
-    // Add fixed expenses
-    for (const expense of fixedExpenseItems.value) {
-      await $fetch(`/api/budgets/${budget.id}/fixed-expenses/create`, {
-        method: "POST",
-        body: {
-          name: expense.name,
-          amount: expense.amount,
-          frequency: expense.frequency,
-          categoryId: expense.categoryId,
-          description: expense.description,
-          matchPattern: expense.matchPattern,
-        },
-      });
-    }
-
-    // Add allocations
-    for (const allocation of allocationItems.value) {
-      await $fetch(`/api/budgets/${budget.id}/allocations/create`, {
-        method: "POST",
-        body: {
-          categoryId: allocation.categoryId,
-          allocatedAmount: allocation.allocatedAmount,
-          notes: allocation.notes,
-        },
-      });
-    }
+    await applyMutations(budgetId, "ACTIVE", isUpdate);
 
     toast.add({
-      title: "Budget created",
-      description: `${budget.name} has been created successfully.`,
+      title: isEditMode.value ? "Budget published" : "Budget created",
+      description: `${budgetData.name} has been ${isEditMode.value ? "published" : "created"} successfully.`,
       color: "success",
     });
 
+    isDirty.value = false;
+    allowNavigation.value = true;
+
+    // Construct a minimal Budget object for the emit
+    const budget = {
+      id: budgetId,
+      name: budgetData.name,
+      period: budgetData.period,
+      status: "ACTIVE",
+    } as Budget;
+
     emit("complete", budget);
   } catch (error: any) {
-    console.error("Error creating budget:", error);
+    console.error("Error saving budget:", error);
     toast.add({
       title: "Error",
-      description: error.data?.message || "Failed to create budget",
+      description: "Failed to save budget",
       color: "error",
     });
   } finally {
@@ -399,324 +532,22 @@ const submitBudget = async () => {
   }
 };
 
-// Submit budget (edit mode)
-const submitBudgetEdit = async () => {
-  if (!props.budgetId) return;
-
-  isSubmitting.value = true;
-
-  try {
-    // Update budget metadata and change status to ACTIVE
-    const { budget } = await $fetch<{ budget: Budget }>(
-      `/api/budgets/${props.budgetId}`,
-      {
-        method: "PATCH",
-        body: {
-          name: budgetData.name,
-          period: budgetData.period,
-          periodStart: budgetData.periodStart.toISOString(),
-          periodEnd: budgetData.periodEnd.toISOString(),
-          status: "ACTIVE",
-        },
-      },
-    );
-
-    // Handle income items
-    for (const income of incomeItems.value) {
-      if (income._id) {
-        // Update existing
-        await $fetch(`/api/budgets/${props.budgetId}/income/${income._id}`, {
-          method: "PATCH",
-          body: {
-            name: income.name,
-            amount: income.amount,
-            frequency: income.frequency,
-            notes: income.notes,
-            expectedFromAccount: income.expectedFromAccount,
-            autoTagEnabled: income.autoTagEnabled,
-            adjustForWeekends: income.adjustForWeekends,
-          },
-        });
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${props.budgetId}/income/create`, {
-          method: "POST",
-          body: {
-            name: income.name,
-            amount: income.amount,
-            frequency: income.frequency,
-            notes: income.notes,
-            expectedFromAccount: income.expectedFromAccount,
-            autoTagEnabled: income.autoTagEnabled,
-            adjustForWeekends: income.adjustForWeekends,
-          },
-        });
-      }
-    }
-
-    // Delete removed income items
-    for (const incomeId of deletedIncomeIds.value) {
-      await $fetch(`/api/budgets/${props.budgetId}/income/${incomeId}`, {
-        method: "DELETE",
-      });
-    }
-
-    // Handle fixed expenses
-    for (const expense of fixedExpenseItems.value) {
-      if (expense._id) {
-        // Update existing
-        await $fetch(
-          `/api/budgets/${props.budgetId}/fixed-expenses/${expense._id}`,
-          {
-            method: "PATCH",
-            body: {
-              name: expense.name,
-              amount: expense.amount,
-              frequency: expense.frequency,
-              categoryId: expense.categoryId,
-              description: expense.description,
-              matchPattern: expense.matchPattern,
-            },
-          },
-        );
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${props.budgetId}/fixed-expenses/create`, {
-          method: "POST",
-          body: {
-            name: expense.name,
-            amount: expense.amount,
-            frequency: expense.frequency,
-            categoryId: expense.categoryId,
-            description: expense.description,
-            matchPattern: expense.matchPattern,
-          },
-        });
-      }
-    }
-
-    // Delete removed expense items
-    for (const expenseId of deletedExpenseIds.value) {
-      await $fetch(
-        `/api/budgets/${props.budgetId}/fixed-expenses/${expenseId}`,
-        {
-          method: "DELETE",
-        },
-      );
-    }
-
-    // Handle allocations
-    for (const allocation of allocationItems.value) {
-      if (allocation._id) {
-        // Update existing
-        await $fetch(
-          `/api/budgets/${props.budgetId}/allocations/${allocation._id}`,
-          {
-            method: "PATCH",
-            body: {
-              categoryId: allocation.categoryId,
-              allocatedAmount: allocation.allocatedAmount,
-              notes: allocation.notes,
-            },
-          },
-        );
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${props.budgetId}/allocations/create`, {
-          method: "POST",
-          body: {
-            categoryId: allocation.categoryId,
-            allocatedAmount: allocation.allocatedAmount,
-            notes: allocation.notes,
-          },
-        });
-      }
-    }
-
-    // Delete removed allocation items
-    for (const allocationId of deletedAllocationIds.value) {
-      await $fetch(
-        `/api/budgets/${props.budgetId}/allocations/${allocationId}`,
-        {
-          method: "DELETE",
-        },
-      );
-    }
-
-    toast.add({
-      title: "Budget published",
-      description: `${budget.name} has been published successfully.`,
-      color: "success",
-    });
-
-    emit("complete", budget);
-  } catch (error: any) {
-    console.error("Error updating budget:", error);
-    toast.add({
-      title: "Error",
-      description: error.data?.message || "Failed to update budget",
-      color: "error",
-    });
-  } finally {
-    isSubmitting.value = false;
-  }
-};
-
-// Main submit handler
 const handleSubmit = () => {
-  if (isEditMode.value) {
-    submitBudgetEdit();
-  } else {
-    submitBudget();
-  }
+  submitBudget();
 };
 
 // Save draft
 const saveDraft = async (navigateAway: boolean = true) => {
   try {
-    let budgetId = draftBudgetId.value || props.budgetId;
+    const budgetId = props.budgetId || draftBudgetId.value || nanoid();
+    const isUpdate = !!(props.budgetId || draftBudgetId.value);
 
-    if (budgetId) {
-      // Update existing draft
-      await $fetch(`/api/budgets/${budgetId}`, {
-        method: "PATCH",
-        body: {
-          name: budgetData.name,
-          period: budgetData.period,
-          periodStart: budgetData.periodStart.toISOString(),
-          periodEnd: budgetData.periodEnd.toISOString(),
-          status: "DRAFT",
-        },
-      });
-    } else {
-      // Create new draft
-      const { budget } = await $fetch<{ budget: Budget }>(
-        "/api/budgets/create",
-        {
-          method: "POST",
-          body: {
-            name: budgetData.name,
-            period: budgetData.period,
-            periodStart: budgetData.periodStart.toISOString(),
-            periodEnd: budgetData.periodEnd.toISOString(),
-            status: "DRAFT",
-          },
-        },
-      );
-      budgetId = budget.id;
-      draftBudgetId.value = budget.id;
+    if (!isUpdate) {
+      draftBudgetId.value = budgetId;
       budgetStatus.value = "DRAFT";
     }
 
-    // Save income items
-    for (const income of incomeItems.value) {
-      if (income._id) {
-        // Update existing
-        await $fetch(`/api/budgets/${budgetId}/income/${income._id}`, {
-          method: "PATCH",
-          body: {
-            name: income.name,
-            amount: income.amount,
-            frequency: income.frequency,
-            notes: income.notes,
-            expectedFromAccount: income.expectedFromAccount,
-            autoTagEnabled: income.autoTagEnabled,
-            adjustForWeekends: income.adjustForWeekends,
-          },
-        });
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${budgetId}/income/create`, {
-          method: "POST",
-          body: {
-            name: income.name,
-            amount: income.amount,
-            frequency: income.frequency,
-            notes: income.notes,
-            expectedFromAccount: income.expectedFromAccount,
-            autoTagEnabled: income.autoTagEnabled,
-            adjustForWeekends: income.adjustForWeekends,
-          },
-        });
-      }
-    }
-
-    // Delete removed income items
-    for (const incomeId of deletedIncomeIds.value) {
-      await $fetch(`/api/budgets/${budgetId}/income/${incomeId}`, {
-        method: "DELETE",
-      });
-    }
-
-    // Save fixed expenses
-    for (const expense of fixedExpenseItems.value) {
-      if (expense._id) {
-        // Update existing
-        await $fetch(`/api/budgets/${budgetId}/fixed-expenses/${expense._id}`, {
-          method: "PATCH",
-          body: {
-            name: expense.name,
-            amount: expense.amount,
-            frequency: expense.frequency,
-            categoryId: expense.categoryId,
-            description: expense.description,
-            matchPattern: expense.matchPattern,
-          },
-        });
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${budgetId}/fixed-expenses/create`, {
-          method: "POST",
-          body: {
-            name: expense.name,
-            amount: expense.amount,
-            frequency: expense.frequency,
-            categoryId: expense.categoryId,
-            description: expense.description,
-            matchPattern: expense.matchPattern,
-          },
-        });
-      }
-    }
-
-    // Delete removed expense items
-    for (const expenseId of deletedExpenseIds.value) {
-      await $fetch(`/api/budgets/${budgetId}/fixed-expenses/${expenseId}`, {
-        method: "DELETE",
-      });
-    }
-
-    // Save allocations
-    for (const allocation of allocationItems.value) {
-      if (allocation._id) {
-        // Update existing
-        await $fetch(`/api/budgets/${budgetId}/allocations/${allocation._id}`, {
-          method: "PATCH",
-          body: {
-            categoryId: allocation.categoryId,
-            allocatedAmount: allocation.allocatedAmount,
-            notes: allocation.notes,
-          },
-        });
-      } else {
-        // Create new
-        await $fetch(`/api/budgets/${budgetId}/allocations/create`, {
-          method: "POST",
-          body: {
-            categoryId: allocation.categoryId,
-            allocatedAmount: allocation.allocatedAmount,
-            notes: allocation.notes,
-          },
-        });
-      }
-    }
-
-    // Delete removed allocation items
-    for (const allocationId of deletedAllocationIds.value) {
-      await $fetch(`/api/budgets/${budgetId}/allocations/${allocationId}`, {
-        method: "DELETE",
-      });
-    }
+    await applyMutations(budgetId, "DRAFT", isUpdate);
 
     isDirty.value = false;
 
@@ -726,7 +557,6 @@ const saveDraft = async (navigateAway: boolean = true) => {
       color: "success",
     });
 
-    // Navigate to budgets list if requested
     if (navigateAway) {
       allowNavigation.value = true;
       navigateTo("/budgets");
@@ -755,14 +585,13 @@ const handleCancel = () => {
 
 const handleSaveDraft = async () => {
   try {
-    // When editing a draft, stay on page; otherwise navigate away
     const shouldNavigate = !isEditingDraft.value;
     await saveDraft(shouldNavigate);
   } catch (error: any) {
     console.error("Failed to save draft:", error);
     toast.add({
       title: "Error",
-      description: error.data?.message || "Failed to save draft",
+      description: "Failed to save draft",
       color: "error",
     });
   }
@@ -774,7 +603,6 @@ const handleSaveDraftAndNavigate = async () => {
     showUnsavedChangesDialog.value = false;
   } catch (error: any) {
     console.error("Failed to save draft:", error);
-    // Keep dialog open on error so user can retry or discard
   }
 };
 
@@ -787,15 +615,9 @@ const handleDiscardChanges = () => {
 onMounted(() => {
   window.addEventListener("beforeunload", handleBeforeUnload);
 
-  // Initialize period dates for create mode (not edit mode)
-  // This runs client-side only to avoid hydration mismatches
   if (!isEditMode.value) {
     updatePeriodDates();
-  }
-
-  // Track deletions for edit mode
-  if (isEditMode.value) {
-    trackPreviousItems();
+    isDataPopulated.value = true;
   }
 });
 
@@ -806,8 +628,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-6">
-    <!-- Loading state -->
-    <div v-if="isLoadingData" class="flex items-center justify-center py-12">
+    <!-- Loading state in edit mode before Zero data arrives -->
+    <div
+      v-if="isEditMode && isLoadingData"
+      class="flex items-center justify-center py-12"
+    >
       <div class="text-center space-y-4">
         <div
           class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"
@@ -827,7 +652,6 @@ onBeforeUnmount(() => {
 
       <!-- Step Content -->
       <div class="min-h-100">
-        <!-- Step 1: Budget Basics -->
         <div v-if="currentStep === 0" class="space-y-6">
           <BudgetWizardStep1
             v-model:name="budgetData.name"
@@ -837,7 +661,6 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Step 2: Income -->
         <div v-else-if="currentStep === 1" class="space-y-6">
           <BudgetWizardStep2
             v-model="incomeItems"
@@ -845,7 +668,6 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Step 3: Fixed Expenses -->
         <div v-else-if="currentStep === 2" class="space-y-6">
           <BudgetWizardStep3
             v-model="fixedExpenseItems"
@@ -853,7 +675,6 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Step 4: Allocations -->
         <div v-else-if="currentStep === 3" class="space-y-6">
           <BudgetWizardStep4
             v-model="allocationItems"
@@ -863,7 +684,6 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Step 5: Review -->
         <div v-else-if="currentStep === 4" class="space-y-6">
           <BudgetWizardStep5
             :budget-data="budgetData"
@@ -880,7 +700,7 @@ onBeforeUnmount(() => {
 
       <!-- Navigation Buttons -->
       <div
-        class="flex flex-col-reverse sm:flex-row sm:justify-between gap-4 pt-4 border-t"
+        class="flex flex-col-reverse sm:flex-row sm:justify-between gap-4 py-4 border-t"
       >
         <div class="flex gap-2">
           <UButton
@@ -919,6 +739,7 @@ onBeforeUnmount(() => {
           >
             Save as Draft
           </UButton>
+
           <UButton
             v-if="currentStep < 4"
             class="flex-1 justify-center hidden sm:flex"

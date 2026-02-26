@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type {
   BudgetIncome,
   FixedExpense,
   CategoryAllocation,
-  TransactionCategory,
 } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 const props = defineProps<{
   budgetData: {
@@ -22,12 +23,11 @@ const props = defineProps<{
   surplus: number;
 }>();
 
-// Fetch categories for names
-const { data: categoriesData } = await useFetch<{
-  categories: TransactionCategory[];
-}>("/api/categories");
-
-const categories = computed(() => categoriesData.value?.categories || []);
+const z = useZero();
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
 
 const getCategoryName = (categoryId: string | null) => {
   if (!categoryId) return "Uncategorized";
@@ -40,6 +40,7 @@ const getCategoryColor = (categoryId: string | null) => {
   const category = categories.value.find((c) => c.id === categoryId);
   return category?.color || "#64748b";
 };
+
 
 const formatCurrency = (cents: number) => {
   return new Intl.NumberFormat("en-NZ", {

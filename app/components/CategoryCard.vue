@@ -12,6 +12,7 @@ const emit = defineEmits<{
 }>();
 
 const deleting = ref(false);
+const z = useZero();
 
 const count = computed(() => props.transactionCount ?? 0);
 
@@ -22,9 +23,7 @@ const handleDelete = async () => {
 
   deleting.value = true;
   try {
-    await $fetch(`/api/categories/${props.category.id}`, {
-      method: "DELETE",
-    });
+    await z.mutate.categories.delete({ id: props.category.id });
     emit("deleted");
   } catch (error) {
     console.error("Failed to delete category:", error);

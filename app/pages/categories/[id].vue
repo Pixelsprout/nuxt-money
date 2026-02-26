@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { TransactionCategory, AkahuTransaction } from "#db/schema";
+import { useQuery } from "zero-vue";
+import type { AkahuTransaction } from "#db/schema";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
 import { createReusableTemplate } from "@vueuse/core";
+import { queries } from "~/db/zero-queries";
 
 const UBadge = resolveComponent("UBadge");
 
@@ -12,10 +14,11 @@ const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 definePageMeta({ layout: "default" });
 
+const z = useZero();
 const route = useRoute();
 const categoryId = route.params.id as string;
 
-// Define columns without the category column
+// Define columns
 const transactionColumns: TableColumn<AkahuTransaction>[] = [
   {
     accessorKey: "date",
@@ -83,66 +86,39 @@ const transactionColumns: TableColumn<AkahuTransaction>[] = [
   },
 ];
 
+// Zero queries
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
+const { data: transactions } = useQuery(
+  z,
+  () => queries.transactions.byCategory({ categoryId }, { userID: z.userID }),
+);
+
+const category = computed(
+  () => categories.value.find((c) => c.id === categoryId) ?? null,
+);
+const transactionCount = computed(() => transactions.value.length);
+
 // State
 const referencesModalOpen = ref(false);
 const editMode = ref(false);
-const editedCategory = ref<{
-  name: string;
-  color: string;
-  description: string;
-}>({
+const editedCategory = reactive({
   name: "",
   color: "#000000",
   description: "",
 });
 const saving = ref(false);
 
-// Fetch category details
-const {
-  data: categoryData,
-  pending: categoryPending,
-  error: categoryError,
-  refresh: refreshCategory,
-} = await useFetch<{
-  category: TransactionCategory;
-  transactionCount: number;
-}>(`/api/categories/${categoryId}`, {
-  credentials: "include",
-});
-
-const category = computed(() => categoryData.value?.category);
-const transactionCount = computed(
-  () => categoryData.value?.transactionCount || 0,
-);
-
-// Fetch transactions for this category
-const { data: transactionsData, pending: transactionsPending } =
-  await useFetch<{
-    success: boolean;
-    transactions: AkahuTransaction[];
-  }>(`/api/categories/${categoryId}/transactions`, {
-    credentials: "include",
-  });
-
-const transactions = computed(() => transactionsData.value?.transactions || []);
-
-// Watch for when category data is loaded and check if it exists
+// Sync editedCategory when category loads
 watch(
-  () => categoryData.value,
-  (data) => {
-    if (data && !category.value) {
-      throw createError({
-        statusCode: 404,
-        message: "Category not found",
-      });
-    }
-    // Initialize editedCategory when category data loads
-    if (category.value) {
-      editedCategory.value = {
-        name: category.value.name,
-        color: category.value.color,
-        description: category.value.description || "",
-      };
+  category,
+  (cat) => {
+    if (cat) {
+      editedCategory.name = cat.name;
+      editedCategory.color = cat.color;
+      editedCategory.description = cat.description ?? "";
     }
   },
   { immediate: true },
@@ -158,49 +134,28 @@ const handleEdit = () => {
 
 const cancelEdit = () => {
   editMode.value = false;
-  // Reset edited category to current values
   if (category.value) {
-    editedCategory.value = {
-      name: category.value.name,
-      color: category.value.color,
-      description: category.value.description || "",
-    };
+    editedCategory.name = category.value.name;
+    editedCategory.color = category.value.color;
+    editedCategory.description = category.value.description ?? "";
   }
 };
 
 const saveChanges = async () => {
-  if (!editedCategory.value.name.trim()) {
-    alert("Category name is required");
-    return;
-  }
+  if (!editedCategory.name.trim()) return;
 
   saving.value = true;
   try {
-    await $fetch(`/api/categories/${categoryId}`, {
-      method: "PATCH",
-      body: {
-        name: editedCategory.value.name,
-        color: editedCategory.value.color,
-        description: editedCategory.value.description,
-      },
+    await z.mutate.categories.update({
+      id: categoryId,
+      name: editedCategory.name.trim(),
+      color: editedCategory.color,
+      description: editedCategory.description || null,
+      updatedAt: Date.now(),
     });
-
-    // Update category data
-    if (categoryData.value?.category) {
-      categoryData.value.category = {
-        ...categoryData.value.category,
-        name: editedCategory.value.name,
-        color: editedCategory.value.color,
-        description: editedCategory.value.description,
-        updatedAt: new Date(),
-      };
-    }
-
     editMode.value = false;
-    await refreshCategory();
   } catch (error) {
     console.error("Failed to save category:", error);
-    alert("Failed to save category. Please try again.");
   } finally {
     saving.value = false;
   }
@@ -223,13 +178,8 @@ const saveChanges = async () => {
     </template>
 
     <template #body>
-      <!-- Loading State -->
-      <div v-if="categoryPending" class="text-center py-12">
-        <p class="text-muted">Loading category...</p>
-      </div>
-
       <!-- Content -->
-      <div v-else-if="category" class="space-y-6">
+      <div v-if="category" class="space-y-6">
         <!-- Category Header -->
         <CategoryHeader
           :category="category"
@@ -241,7 +191,6 @@ const saveChanges = async () => {
         <!-- Reusable template for modal/drawer content -->
         <DefineEditFormTemplate>
           <div class="space-y-4">
-            <!-- Name Input -->
             <div>
               <label class="block text-sm font-medium mb-2">Name</label>
               <UInput
@@ -249,20 +198,16 @@ const saveChanges = async () => {
                 placeholder="Category name"
               />
             </div>
-
-            <!-- Color Picker -->
             <div>
               <label class="block text-sm font-medium mb-2">Color</label>
               <ColorSwatchPicker v-model="editedCategory.color" />
             </div>
-
-            <!-- Description Textarea -->
             <div>
               <label class="block text-sm font-medium mb-2">Description</label>
               <UTextarea
                 v-model="editedCategory.description"
                 placeholder="Category description (optional)"
-                rows="3"
+                :rows="3"
               />
             </div>
           </div>
@@ -273,12 +218,12 @@ const saveChanges = async () => {
           v-if="isDesktop"
           v-model:open="editMode"
           title="Edit Category"
+          description="Update the name, colour, and description for this category."
           :ui="{ footer: 'justify-end' }"
         >
           <template #body>
             <ReuseEditFormTemplate />
           </template>
-
           <template #footer>
             <UButton variant="outline" color="neutral" @click="cancelEdit">
               Cancel
@@ -294,7 +239,6 @@ const saveChanges = async () => {
           <template #body>
             <ReuseEditFormTemplate />
           </template>
-
           <template #footer>
             <UButton
               variant="outline"
@@ -337,11 +281,7 @@ const saveChanges = async () => {
             </UButton>
           </div>
 
-          <div v-if="transactionsPending" class="text-center py-8">
-            <p class="text-muted">Loading transactions...</p>
-          </div>
-
-          <div v-else-if="transactions.length > 0">
+          <div v-if="transactions.length > 0">
             <TransactionTable
               :transactions="transactions"
               :columns="transactionColumns"
@@ -354,7 +294,7 @@ const saveChanges = async () => {
         </div>
       </div>
 
-      <!-- Error/Not Found State -->
+      <!-- Not Found State -->
       <div v-else class="text-center py-12">
         <p class="text-muted">Category not found</p>
         <UButton

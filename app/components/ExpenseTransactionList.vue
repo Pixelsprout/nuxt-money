@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { FixedExpense, AkahuTransaction } from "#db/schema";
+import { useQuery } from "zero-vue";
+import type { AkahuTransaction, FixedExpense } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 const props = defineProps<{
   budgetId: string;
@@ -11,30 +13,75 @@ const emit = defineEmits<{
 }>();
 
 const showTransactionPicker = ref(false);
+const z = useZero();
 
-// Fetch tagged transactions
-const {
-  data: taggedData,
-  pending: loading,
-  error,
-  refresh: refreshTransactions,
-} = await useFetch<{
-  expense: FixedExpense;
-  transactions: Array<{
-    id: string;
-    transaction: AkahuTransaction;
-    linkedAt: string;
-    autoTagged: boolean;
-  }>;
-  summary: {
-    totalTagged: number;
-    totalAmount: number;
-    averageAmount: number;
-    lastPaymentDate: string | null;
-    nextDueDate: string | null;
-  };
-}>(`/api/budgets/${props.budgetId}/fixed-expenses/${props.fixedExpenseId}/transactions`, {
-  immediate: true,
+// Fetch linked transaction records from Zero
+const { data: links } = useQuery(
+  z,
+  () =>
+    queries.fixedExpenseTransactions.byExpense(
+      { fixedExpenseId: props.fixedExpenseId },
+      { userID: z.userID },
+    ),
+);
+
+// Fetch all transactions from Zero to join with links
+const { data: allTransactions } = useQuery(
+  z,
+  () => queries.transactions.all({ userID: z.userID }),
+);
+
+// Fetch expense item from Zero
+const { data: expenseItems } = useQuery(
+  z,
+  () =>
+    queries.fixedExpenses.byBudget(
+      { budgetId: props.budgetId },
+      { userID: z.userID },
+    ),
+);
+
+const expense = computed<FixedExpense | null>(
+  () =>
+    expenseItems.value.find((e) => e.id === props.fixedExpenseId) ?? null,
+);
+
+// Build a lookup map for transactions
+const transactionMap = computed(() => {
+  const map = new Map<string, AkahuTransaction>();
+  for (const t of allTransactions.value) {
+    map.set(t.id, t as AkahuTransaction);
+  }
+  return map;
+});
+
+// Joined tagged data sorted by transaction date desc
+const taggedData = computed(() => {
+  return links.value
+    .map((link) => ({
+      id: link.id,
+      transaction: transactionMap.value.get(link.transactionId) ?? null,
+      linkedAt: link.linkedAt,
+      autoTagged: link.autoTagged,
+    }))
+    .filter((item) => item.transaction !== null)
+    .sort(
+      (a, b) =>
+        new Date(b.transaction!.date).getTime() -
+        new Date(a.transaction!.date).getTime(),
+    );
+});
+
+// Summary computed from Zero data
+const summary = computed(() => {
+  const totalTagged = taggedData.value.length;
+  const totalAmount = taggedData.value.reduce((sum, item) => {
+    const amount = (item.transaction?.amount as any)?.value ?? 0;
+    return sum + Math.abs(amount);
+  }, 0);
+  const averageAmount = totalTagged > 0 ? totalAmount / totalTagged : 0;
+  const nextDueDate = expense.value?.nextDueDate ?? null;
+  return { totalTagged, totalAmount, averageAmount, nextDueDate };
 });
 
 const formatCurrency = (value: number) => {
@@ -44,7 +91,8 @@ const formatCurrency = (value: number) => {
   }).format(Math.abs(value));
 };
 
-const formatDate = (date: string | Date) => {
+const formatDate = (date: string | Date | number | null) => {
+  if (!date) return "Not set";
   return new Date(date).toLocaleDateString("en-NZ", {
     day: "2-digit",
     month: "short",
@@ -52,17 +100,12 @@ const formatDate = (date: string | Date) => {
   });
 };
 
-async function handleUntag(transactionId: string) {
+async function handleUntag(linkId: string) {
   const confirmed = confirm("Are you sure you want to untag this transaction?");
   if (!confirmed) return;
 
   try {
-    await $fetch(
-      `/api/budgets/${props.budgetId}/fixed-expenses/${props.fixedExpenseId}/transactions/${transactionId}`,
-      {
-        method: "DELETE",
-      },
-    );
+    await z.mutate.fixedExpenseTransactions.unlink({ id: linkId });
 
     useToast().add({
       title: "Transaction Untagged",
@@ -70,7 +113,6 @@ async function handleUntag(transactionId: string) {
       color: "green",
     });
 
-    await refreshTransactions();
     emit("refresh");
   } catch (err: any) {
     useToast().add({
@@ -82,11 +124,8 @@ async function handleUntag(transactionId: string) {
 }
 
 function handleTransactionTagged() {
-  refreshTransactions();
   emit("refresh");
 }
-
-defineExpose({ refresh: refreshTransactions });
 </script>
 
 <template>
@@ -99,65 +138,39 @@ defineExpose({ refresh: refreshTransactions });
     </div>
 
     <!-- Summary Cards -->
-    <div
-      v-if="taggedData?.summary"
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-    >
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <UCard>
         <div class="text-sm text-gray-500">Total Tagged</div>
         <div class="text-2xl font-semibold mt-1">
-          {{ taggedData.summary.totalTagged }}
+          {{ summary.totalTagged }}
         </div>
       </UCard>
 
       <UCard>
         <div class="text-sm text-gray-500">Total Amount</div>
         <div class="text-2xl font-semibold mt-1 text-red-600">
-          {{ formatCurrency(taggedData.summary.totalAmount) }}
+          {{ formatCurrency(summary.totalAmount) }}
         </div>
       </UCard>
 
       <UCard>
         <div class="text-sm text-gray-500">Average Amount</div>
         <div class="text-2xl font-semibold mt-1">
-          {{ formatCurrency(taggedData.summary.averageAmount) }}
+          {{ formatCurrency(summary.averageAmount) }}
         </div>
       </UCard>
 
       <UCard>
         <div class="text-sm text-gray-500">Next Due Date</div>
         <div class="text-2xl font-semibold mt-1">
-          {{
-            taggedData.summary.nextDueDate
-              ? formatDate(taggedData.summary.nextDueDate)
-              : "Not set"
-          }}
+          {{ formatDate(summary.nextDueDate) }}
         </div>
       </UCard>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div class="text-center">
-        <div
-          class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
-        ></div>
-        <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
-      </div>
-    </div>
-
-    <!-- Error State -->
-    <div v-else-if="error" class="rounded-md bg-red-50 p-4">
-      <p class="text-sm text-red-800">
-        {{ error.message || "Failed to load transactions" }}
-      </p>
-    </div>
-
     <!-- Empty State -->
     <div
-      v-else-if="
-        !taggedData?.transactions || taggedData.transactions.length === 0
-      "
+      v-if="taggedData.length === 0"
       class="text-center py-12 bg-gray-50 rounded-lg"
     >
       <p class="text-gray-500">No transactions tagged yet</p>
@@ -169,7 +182,7 @@ defineExpose({ refresh: refreshTransactions });
     <!-- Transactions List -->
     <div v-else class="space-y-3">
       <div
-        v-for="item in taggedData.transactions"
+        v-for="item in taggedData"
         :key="item.id"
         class="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
       >
@@ -177,7 +190,7 @@ defineExpose({ refresh: refreshTransactions });
           <div class="flex-1">
             <div class="flex items-center gap-2">
               <p class="font-medium text-gray-900">
-                {{ item.transaction.description }}
+                {{ item.transaction!.description }}
               </p>
               <UBadge
                 v-if="item.autoTagged"
@@ -190,22 +203,22 @@ defineExpose({ refresh: refreshTransactions });
             </div>
 
             <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
-              <span>{{ formatDate(item.transaction.date) }}</span>
+              <span>{{ formatDate(item.transaction!.date) }}</span>
               <span class="text-red-600 font-semibold">
                 {{
-                  formatCurrency((item.transaction.amount as any)?.value || 0)
+                  formatCurrency((item.transaction!.amount as any)?.value || 0)
                 }}
               </span>
               <span
-                v-if="item.transaction.merchant"
+                v-if="item.transaction!.merchant"
                 class="text-xs text-gray-400"
               >
-                {{ item.transaction.merchant }}
+                {{ item.transaction!.merchant }}
               </span>
             </div>
 
             <div class="text-xs text-gray-400 mt-1">
-              Tagged {{ new Date(item.linkedAt).toLocaleDateString() }}
+              Tagged {{ new Date(item.linkedAt as number).toLocaleDateString() }}
             </div>
           </div>
 
@@ -214,7 +227,7 @@ defineExpose({ refresh: refreshTransactions });
             variant="ghost"
             size="sm"
             icon="i-heroicons-x-mark"
-            @click="handleUntag(item.transaction.id)"
+            @click="handleUntag(item.id)"
           />
         </div>
       </div>
@@ -222,8 +235,8 @@ defineExpose({ refresh: refreshTransactions });
 
     <!-- Transaction Picker Modal -->
     <ExpenseTransactionPicker
-      v-if="taggedData?.expense"
-      :expense="taggedData.expense"
+      v-if="expense"
+      :expense="expense"
       :budget-id="budgetId"
       :open="showTransactionPicker"
       @update:open="showTransactionPicker = $event"

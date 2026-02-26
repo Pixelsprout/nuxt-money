@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { h, resolveComponent } from "vue";
-import type { AkahuTransaction, TransactionCategory } from "#db/schema";
+import { useQuery } from "zero-vue";
+import type { AkahuTransaction } from "#db/schema";
 import type { TableColumn } from "@nuxt/ui";
 import { useDebounceFn } from "@vueuse/core";
+import { queries } from "~/db/zero-queries";
 
 const UBadge = resolveComponent("UBadge");
 const CategorySelector = resolveComponent("CategorySelector");
@@ -11,12 +13,12 @@ const props = defineProps<{
   accountId?: string;
   transactions?: AkahuTransaction[];
   columns?: TableColumn<AkahuTransaction>[];
-  budgetId?: string; // Optional budget ID for income tagging
+  budgetId?: string;
 }>();
 
+const z = useZero();
 const searchTerm = ref("");
 const typeFilter = ref<"ALL" | "DEBIT" | "CREDIT">("ALL");
-const loading = ref(false);
 
 // Income tagging modal state
 const incomeTagModalOpen = ref(false);
@@ -28,48 +30,31 @@ function openIncomeTagModal(transaction: AkahuTransaction) {
 }
 
 function handleIncomeTagged() {
-  // Refresh transactions to show updated tags
-  if (props.accountId) {
-    refresh();
-  }
+  // Zero replicates changes automatically — no manual refresh needed
 }
 
-// Fetch all transactions (only if accountId is provided)
-const {
-  data: transactionsData,
-  refresh,
-  pending,
-} = await useFetch<{
-  success: boolean;
-  transactions: AkahuTransaction[];
-  total: number;
-}>(`/api/transactions/${props.accountId}`, {
-  key: `transactions-${props.accountId}`,
-  immediate: !!props.accountId, // Only fetch if accountId is provided
-});
+// Fetch transactions from Zero if accountId provided
+const { data: accountTransactions } = useQuery(
+  z,
+  () =>
+    props.accountId
+      ? queries.transactions.byAccount(
+          { accountId: props.accountId },
+          { userID: z.userID },
+        )
+      : queries.transactions.all({ userID: z.userID }),
+);
 
 const allTransactions = computed<AkahuTransaction[]>(() => {
-  // Use provided transactions prop if available, otherwise use fetched data
-  if (props.transactions) {
-    return props.transactions;
-  }
-  return transactionsData.value?.transactions || [];
+  if (props.transactions) return props.transactions as AkahuTransaction[];
+  return accountTransactions.value as AkahuTransaction[];
 });
 
-// Fetch categories
-const { data: categoriesData, refresh: refreshCategories } = await useFetch<{
-  success: boolean;
-  categories: TransactionCategory[];
-}>("/api/categories", {
-  credentials: "include",
-});
-
-const categories = computed(() => categoriesData.value?.categories || []);
-
-// Update loading state
-watch(pending, (isPending) => {
-  loading.value = isPending;
-});
+// Fetch categories from Zero
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
 
 // Debounced search
 const debouncedSearch = ref("");
@@ -81,22 +66,19 @@ watch(searchTerm, (newValue) => {
   updateSearch(newValue);
 });
 
-// Filtered transactions based on search and type filter
 const filteredTransactions = computed(() => {
   let filtered = allTransactions.value;
 
-  // Apply search filter
   if (debouncedSearch.value) {
     const search = debouncedSearch.value.toLowerCase();
     filtered = filtered.filter(
       (t) =>
         t.description.toLowerCase().includes(search) ||
         t.merchant?.toLowerCase().includes(search) ||
-        t.category?.toLowerCase().includes(search),
+        (t.category as string | null)?.toLowerCase().includes(search),
     );
   }
 
-  // Apply type filter
   if (typeFilter.value !== "ALL") {
     filtered = filtered.filter((t) => t.type === typeFilter.value);
   }
@@ -120,9 +102,7 @@ const formatDate = (date: Date) => {
 };
 
 const getTypeColor = (type: string | null) => {
-  if (type === "CREDIT") {
-    return "success";
-  }
+  if (type === "CREDIT") return "success";
   return "error";
 };
 
@@ -132,9 +112,7 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
     accessorKey: "date",
     header: "Date",
     size: 120,
-    cell: ({ row }) => {
-      return formatDate(row.getValue("date"));
-    },
+    cell: ({ row }) => formatDate(row.getValue("date")),
   },
   {
     accessorKey: "description",
@@ -159,9 +137,7 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
 
       return h(
         "span",
-        {
-          class: type === "CREDIT" ? "text-success" : "text-error",
-        },
+        { class: type === "CREDIT" ? "text-success" : "text-error" },
         formatCurrency(value),
       );
     },
@@ -177,11 +153,8 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
         modelValue: transaction.categoryId,
         categories: categories.value,
         transactionId: transaction.id,
-        onCreated: async () => {
-          await refreshCategories();
-        },
         onUpdated: async () => {
-          await refresh();
+          // Zero replicates — no manual refresh needed
         },
       });
     },
@@ -194,7 +167,6 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
       const transaction = row.original;
       const UButton = resolveComponent("UButton");
 
-      // Only show income tagging if budgetId is provided and transaction is a credit
       if (!props.budgetId || transaction.type !== "CREDIT") {
         return "-";
       }
@@ -232,10 +204,7 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
   },
 ];
 
-// Use provided columns or default columns
 const tableColumns = computed(() => props.columns || defaultColumns);
-
-defineExpose({ refresh });
 </script>
 
 <template>
@@ -280,19 +249,17 @@ defineExpose({ refresh });
       {{ allTransactions.length }} transactions
     </div>
 
-    <!-- Table with virtualization -->
+    <!-- Table -->
     <div class="overflow-x-auto">
       <UTable
         :data="filteredTransactions"
         :columns="tableColumns"
-        :loading="loading"
-        class="min-w-full table-fixed border-separate border-spacing-0"
+        virtualize
+        class="min-w-full table-fixed border-separate border-spacing-0 h-[600px]"
         :ui="{
           base: 'table-fixed border-separate border-spacing-0',
           thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-          tbody: '[&>tr]:last:[&>td]:border-b-0',
           th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-          td: 'border-b border-default',
         }"
       >
         <template #empty>

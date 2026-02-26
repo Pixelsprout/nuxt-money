@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import type { TransactionCategory } from "#db/schema";
+import { useQuery } from "zero-vue";
 import { createReusableTemplate } from "@vueuse/core";
+import { nanoid } from "nanoid";
+import { queries } from "~/db/zero-queries";
 
 const [DefineCreateFormTemplate, ReuseCreateFormTemplate] =
   createReusableTemplate();
@@ -8,9 +10,9 @@ const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 
 definePageMeta({ layout: "default" });
 
+const z = useZero();
 const showCreateModal = ref(false);
 const isCreating = ref(false);
-const loading = ref(false);
 
 // Form state
 const formData = reactive({
@@ -19,57 +21,33 @@ const formData = reactive({
   description: "",
 });
 
-const { data: categoriesData, refresh } = await useFetch<{
-  success: boolean;
-  categories: TransactionCategory[];
-}>("/api/categories");
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
 
-const categoriesWithCounts = ref<
-  Array<TransactionCategory & { transactionCount?: number }>
->([]);
+// Compute transaction counts per category from Zero
+const { data: allTransactions } = useQuery(
+  z,
+  () => queries.transactions.all({ userID: z.userID }),
+);
 
-const categories = computed<
-  Array<TransactionCategory & { transactionCount?: number }>
->(() => {
-  return categoriesWithCounts.value || [];
+const transactionCountByCategory = computed(() => {
+  const counts = new Map<string, number>();
+  for (const t of allTransactions.value) {
+    if (t.categoryId) {
+      counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
+    }
+  }
+  return counts;
 });
 
-const refreshCategories = async () => {
-  loading.value = true;
-  try {
-    await refresh();
-    // Fetch transaction counts for each category
-    if (categoriesData.value?.categories) {
-      const categoriesWithData = await Promise.all(
-        categoriesData.value.categories.map(async (category) => {
-          try {
-            const response = await $fetch<{
-              success: boolean;
-              category: TransactionCategory;
-              transactionCount: number;
-            }>(`/api/categories/${category.id}`);
-            return {
-              ...category,
-              transactionCount: response.transactionCount,
-            };
-          } catch (error) {
-            console.error(
-              `Failed to fetch count for category ${category.id}:`,
-              error,
-            );
-            return {
-              ...category,
-              transactionCount: 0,
-            };
-          }
-        }),
-      );
-      categoriesWithCounts.value = categoriesWithData;
-    }
-  } finally {
-    loading.value = false;
-  }
-};
+const categoriesWithCounts = computed(() =>
+  categories.value.map((cat) => ({
+    ...cat,
+    transactionCount: transactionCountByCategory.value.get(cat.id) ?? 0,
+  })),
+);
 
 const resetForm = () => {
   formData.name = "";
@@ -78,36 +56,28 @@ const resetForm = () => {
 };
 
 const createCategory = async () => {
-  if (!formData.name.trim()) {
-    alert("Please enter a category name");
-    return;
-  }
+  if (!formData.name.trim()) return;
 
   isCreating.value = true;
   try {
-    await $fetch("/api/categories/create", {
-      method: "POST",
-      body: {
-        name: formData.name,
-        color: formData.color,
-        description: formData.description || undefined,
-      },
+    const now = Date.now();
+    await z.mutate.categories.create({
+      id: nanoid(),
+      name: formData.name.trim(),
+      color: formData.color,
+      description: formData.description || null,
+      createdAt: now,
+      updatedAt: now,
     });
 
     resetForm();
     showCreateModal.value = false;
-    await refreshCategories();
   } catch (error) {
     console.error("Failed to create category:", error);
-    alert("Failed to create category. Please try again.");
   } finally {
     isCreating.value = false;
   }
 };
-
-onMounted(() => {
-  refreshCategories();
-});
 </script>
 
 <template>
@@ -125,14 +95,9 @@ onMounted(() => {
           </p>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="loading" class="text-center py-12 text-muted">
-          Loading categories...
-        </div>
-
         <!-- Empty State -->
         <div
-          v-else-if="categories.length === 0"
+          v-if="categories.length === 0"
           class="text-center py-12 space-y-4"
         >
           <div class="text-muted">
@@ -149,11 +114,10 @@ onMounted(() => {
           class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           <CategoryCard
-            v-for="category in categories"
+            v-for="category in categoriesWithCounts"
             :key="category.id"
             :category="category"
             :transaction-count="category.transactionCount"
-            @deleted="refreshCategories"
           />
         </div>
 

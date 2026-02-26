@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AkahuAccount } from "#db/schema";
+import type { AkahuAccount } from "~/db/zero-schema.gen";
 
 const props = defineProps<{
   account: AkahuAccount;

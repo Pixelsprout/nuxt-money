@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type { BudgetIncome, AkahuTransaction } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 const props = defineProps<{
   income: BudgetIncome;
@@ -20,55 +22,50 @@ const referenceDatePayday = ref<string>("");
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Fetch all user's transactions (CREDIT only for income)
-const {
-  data: transactionsData,
-  pending: loadingTransactions,
-  refresh: refreshTransactions,
-} = await useFetch<{
-  success: boolean;
-  transactions: AkahuTransaction[];
-}>("/api/transactions/all", {
-  immediate: false,
-  query: {
-    type: "CREDIT", // Only show credit transactions for income
-  },
-});
+const z = useZero();
 
-// Fetch already tagged transactions for this income item
-const { data: taggedData, refresh: refreshTagged } = await useFetch<{
-  transactions: Array<{
-    id: string;
-    transaction: AkahuTransaction;
-  }>;
-}>(`/api/budgets/${props.budgetId}/income/${props.income.id}/transactions`, {
-  immediate: false,
-});
+// Fetch all transactions from Zero
+const { data: allTransactions } = useQuery(
+  z,
+  () => queries.transactions.all({ userID: z.userID }),
+);
 
-// Watch open state to fetch data when modal opens
+// Fetch already tagged transactions for this income item from Zero
+const { data: links } = useQuery(
+  z,
+  () =>
+    queries.budgetIncomeTransactions.byIncome(
+      { incomeId: props.income.id },
+      { userID: z.userID },
+    ),
+);
+
+// CREDIT transactions only
+const transactions = computed(() =>
+  allTransactions.value.filter((t) => t.type === "CREDIT"),
+);
+
+// Set of already-tagged transaction IDs
+const taggedTransactionIds = computed(
+  () => new Set(links.value.map((l) => l.transactionId)),
+);
+
+// Reset form when modal opens
 watch(
   () => props.open,
-  async (isOpen) => {
+  (isOpen) => {
     if (isOpen) {
       error.value = null;
       selectedTransaction.value = null;
       referenceDatePayday.value = "";
-      await Promise.all([refreshTransactions(), refreshTagged()]);
     }
   },
 );
 
-const taggedTransactionIds = computed(() => {
-  return new Set(
-    taggedData.value?.transactions.map((t) => t.transaction.id) || [],
-  );
-});
-
 // Filter transactions
 const filteredTransactions = computed(() => {
-  let filtered = transactionsData.value?.transactions || [];
+  let filtered = transactions.value as AkahuTransaction[];
 
-  // Apply search filter
   if (searchTerm.value) {
     const search = searchTerm.value.toLowerCase();
     filtered = filtered.filter(
@@ -78,12 +75,9 @@ const filteredTransactions = computed(() => {
     );
   }
 
-  // Sort by date (most recent first)
-  filtered = [...filtered].sort(
+  return [...filtered].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
-
-  return filtered;
 });
 
 const formatCurrency = (value: number) => {
@@ -103,7 +97,6 @@ const formatDate = (date: string | Date) => {
 
 function selectTransaction(transaction: AkahuTransaction) {
   selectedTransaction.value = transaction;
-  // Pre-populate reference date from transaction date
   const transactionDate = new Date(transaction.date);
   referenceDatePayday.value = transactionDate.toISOString().split("T")[0];
 }
@@ -196,21 +189,8 @@ function handleClose() {
           icon="i-lucide-search"
         />
 
-        <!-- Loading State -->
-        <div
-          v-if="loadingTransactions"
-          class="flex items-center justify-center py-8"
-        >
-          <div class="text-center">
-            <div
-              class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
-            ></div>
-            <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
-          </div>
-        </div>
-
         <!-- Transaction List -->
-        <div v-else class="space-y-2 max-h-96 overflow-y-auto">
+        <div class="space-y-2 max-h-96 overflow-y-auto">
           <div
             v-for="transaction in filteredTransactions"
             :key="transaction.id"
@@ -340,21 +320,8 @@ function handleClose() {
         icon="i-lucide-search"
       />
 
-      <!-- Loading State -->
-      <div
-        v-if="loadingTransactions"
-        class="flex items-center justify-center py-8"
-      >
-        <div class="text-center">
-          <div
-            class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
-          ></div>
-          <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
-        </div>
-      </div>
-
       <!-- Transaction List -->
-      <div v-else class="space-y-2 max-h-96 overflow-y-auto">
+      <div class="space-y-2 max-h-96 overflow-y-auto">
         <div
           v-for="transaction in filteredTransactions"
           :key="transaction.id"

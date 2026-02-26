@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type {
-  Budget,
-  BudgetIncome,
-  FixedExpense,
-  TransactionCategory,
-} from "#db/schema";
+import type { FixedExpense } from "#db/schema";
 
 definePageMeta({ layout: "default" });
 
@@ -12,54 +7,17 @@ const route = useRoute();
 const toast = useToast();
 const budgetId = route.params.id as string;
 
-interface ProgressData {
-  success: boolean;
-  budget: Budget;
-  summary: {
-    totalIncome: number;
-    totalFixedExpenses: number;
-    totalAllocated: number;
-    totalSpent: number;
-    totalRemaining: number;
-    surplus: number;
-    overallPercentUsed: number;
-  };
-  period: {
-    start: string;
-    end: string;
-    totalDays: number;
-    daysElapsed: number;
-    daysRemaining: number;
-    percentComplete: number;
-  };
-  categoryProgress: Array<{
-    category: TransactionCategory | null;
-    allocated: number;
-    spent: number;
-    remaining: number;
-    percentUsed: number;
-    transactionCount: number;
-    status: "ON_TRACK" | "WARNING" | "OVER_BUDGET";
-  }>;
-  income: BudgetIncome[];
-  fixedExpenses: FixedExpense[];
-}
+const z = useZero();
 
-const { data, pending, error, refresh } = await useFetch<ProgressData>(
-  `/api/budgets/${budgetId}/progress`,
-  {
-    // Retry once if we get a 404 (budget might not be committed yet)
-    retry: 1,
-    retryDelay: 500,
-  },
-);
-
-const budget = computed(() => data.value?.budget);
-const summary = computed(() => data.value?.summary);
-const period = computed(() => data.value?.period);
-const categoryProgress = computed(() => data.value?.categoryProgress || []);
-const income = computed(() => data.value?.income || []);
-const fixedExpenses = computed(() => data.value?.fixedExpenses || []);
+const {
+  budget,
+  summary,
+  period,
+  categoryProgress,
+  incomeItems: income,
+  expenseItems: fixedExpenses,
+  allocationItems,
+} = useBudgetProgress(budgetId);
 
 const isRolloverModalOpen = ref(false);
 const selectedExpense = ref<FixedExpense | null>(null);
@@ -122,16 +80,13 @@ const deleteBudget = async () => {
   if (!confirm("Are you sure you want to delete this budget?")) return;
 
   try {
-    await $fetch(`/api/budgets/${budgetId}`, { method: "DELETE" });
-    toast.add({
-      title: "Budget deleted",
-      color: "success",
-    });
+    await z.mutate.budgets.delete({ id: budgetId });
+    toast.add({ title: "Budget deleted", color: "success" });
     navigateTo("/budgets");
   } catch (err: any) {
     toast.add({
       title: "Error",
-      description: err.data?.message || "Failed to delete budget",
+      description: "Failed to delete budget",
       color: "error",
     });
   }
@@ -157,27 +112,8 @@ const deleteBudget = async () => {
     </template>
 
     <template #body>
-      <!-- Loading -->
-      <div v-if="pending" class="text-center py-12 text-muted">
-        Loading budget...
-      </div>
-
-      <!-- Error -->
-      <div v-else-if="error" class="text-center py-12 space-y-4">
-        <p class="text-error">Failed to load budget.</p>
-        <p class="text-sm text-muted">
-          {{ error.data?.message || error.message || "Please try again." }}
-        </p>
-        <div class="flex gap-2 justify-center">
-          <UButton variant="outline" icon="i-lucide-arrow-left" to="/budgets">
-            Back to Budgets
-          </UButton>
-          <UButton icon="i-lucide-refresh-cw" @click="refresh"> Retry </UButton>
-        </div>
-      </div>
-
       <!-- Content -->
-      <div v-else-if="budget" class="space-y-6">
+      <div v-if="budget" class="space-y-6">
         <!-- Budget Header -->
         <div
           class="flex flex-col sm:flex-row justify-between items-start gap-4"
@@ -284,21 +220,11 @@ const deleteBudget = async () => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
               v-for="cat in categoryProgress"
-              :key="cat.category?.id || 'uncategorized'"
+              :key="cat.categoryId"
               class="p-4 border rounded-lg"
             >
               <div class="flex justify-between items-center mb-2">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="w-3 h-3 rounded-full"
-                    :style="{
-                      backgroundColor: cat.category?.color || '#64748b',
-                    }"
-                  ></span>
-                  <span class="font-medium">
-                    {{ cat.category?.name || "Uncategorized" }}
-                  </span>
-                </div>
+                <span class="font-medium">{{ cat.categoryId }}</span>
                 <UBadge :color="getStatusColor(cat.status)" size="sm">
                   {{ cat.status.replace("_", " ") }}
                 </UBadge>
@@ -378,8 +304,20 @@ const deleteBudget = async () => {
           :budget-id="budgetId"
           :open="isExpenseDetailsModalOpen"
           @update:open="isExpenseDetailsModalOpen = $event"
-          @refresh="refresh"
         />
+      </div>
+
+      <!-- Not Found -->
+      <div v-else class="text-center py-12">
+        <p class="text-muted">Budget not found</p>
+        <UButton
+          class="mt-4"
+          variant="outline"
+          icon="i-lucide-arrow-left"
+          to="/budgets"
+        >
+          Back to Budgets
+        </UButton>
       </div>
     </template>
   </UDashboardPanel>
