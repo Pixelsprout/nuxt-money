@@ -38,6 +38,10 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: process.env.NODE_ENV === "production",
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: ".pixelsprout.dev",
+    },
   },
   onAPIError: {
     errorURL: "/error",
