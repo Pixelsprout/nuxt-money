@@ -1,7 +1,7 @@
 <template>
   <UDashboardGroup unit="rem">
     <!-- Sidebar for desktop (hidden on mobile) -->
-    <UDashboardSidebar collapsible resizable class="hidden sm:flex">
+    <UDashboardSidebar collapsible resizable>
       <template #header="{ collapsed }">
         <div
           class="flex items-center justify-between py-3 flex-1"

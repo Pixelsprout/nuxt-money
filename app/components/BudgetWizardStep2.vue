@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useVirtualizer } from "@tanstack/vue-virtual";
+import { useQuery } from "zero-vue";
 import type { BudgetIncome } from "#db/schema";
 import { createReusableTemplate } from "@vueuse/core";
 import { nanoid } from "nanoid";
+import { queries } from "~/db/zero-queries";
 
 const [DefineFormTemplate, ReuseFormTemplate] = createReusableTemplate();
 const isDesktop = useSSRMediaQuery("(min-width: 768px)");
@@ -29,10 +31,19 @@ const formData = reactive({
   adjustForWeekends: true,
 });
 
-// Transaction selector
+// Transaction selector — load from Zero
 const searchTerm = ref("");
-const loadingTransactions = ref(false);
-const transactions = ref<any[]>([]);
+
+const z = useZero();
+const { data: allTransactions } = useQuery(
+  z,
+  () => queries.transactions.all({ userID: z.userID }),
+);
+
+// Filter to CREDIT transactions only
+const transactions = computed(() =>
+  allTransactions.value.filter((t) => t.type === "CREDIT"),
+);
 
 const filteredTransactions = computed(() => {
   if (!searchTerm.value) return transactions.value;
@@ -54,22 +65,6 @@ const virtualizer = useVirtualizer(
   })),
 );
 
-async function loadTransactions() {
-  loadingTransactions.value = true;
-  try {
-    const { data } = await useFetch<{
-      success: boolean;
-      transactions: any[];
-    }>("/api/transactions/all", {
-      query: { type: "CREDIT" },
-    });
-    transactions.value = data.value?.transactions || [];
-  } catch (err) {
-    console.error("Failed to load transactions:", err);
-  } finally {
-    loadingTransactions.value = false;
-  }
-}
 
 function toggleTransaction(transaction: any) {
   const ids = new Set(selectedTransactionIds.value);
@@ -164,7 +159,6 @@ const resetForm = () => {
 const openAddModal = () => {
   resetForm();
   showModal.value = true;
-  loadTransactions(); // Load transactions when modal opens
 };
 
 const openEditModal = (item: BudgetIncome) => {
@@ -387,15 +381,11 @@ const totalMonthlyIncome = computed(() => {
         />
 
         <div
-          v-if="loadingTransactions"
-          class="flex items-center justify-center py-8"
+          v-if="filteredTransactions.length === 0"
+          class="text-center py-8 text-gray-500"
         >
-          <div class="text-center">
-            <div
-              class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"
-            ></div>
-            <p class="text-sm text-gray-500 mt-2">Loading transactions...</p>
-          </div>
+          <p>No transactions found</p>
+          <p class="text-sm mt-1">Try adjusting your search</p>
         </div>
 
         <div

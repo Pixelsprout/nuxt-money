@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type { AkahuTransaction, BudgetIncome } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 const props = defineProps<{
   transaction: AkahuTransaction;
@@ -18,16 +20,16 @@ const adjustForWeekends = ref(true);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Fetch income items for the budget
-const {
-  data: incomeItems,
-  pending: loadingIncome,
-  error: incomeError,
-} = await useFetch<{ incomes: BudgetIncome[] }>(
-  `/api/budgets/${props.budgetId}/income`,
-  {
-    immediate: true,
-  },
+const z = useZero();
+
+// Fetch income items for the budget from Zero
+const { data: incomeItems } = useQuery(
+  z,
+  () =>
+    queries.budgetIncome.byBudget(
+      { budgetId: props.budgetId },
+      { userID: z.userID },
+    ),
 );
 
 // Pre-populate the payday date from transaction date
@@ -35,11 +37,9 @@ watch(
   () => props.open,
   (isOpen) => {
     if (isOpen && props.transaction) {
-      // Reset form
       selectedIncomeId.value = null;
       error.value = null;
 
-      // Pre-populate date from transaction
       const transactionDate = new Date(props.transaction.date);
       referenceDatePayday.value = transactionDate.toISOString().split("T")[0];
     }
@@ -47,11 +47,8 @@ watch(
 );
 
 const selectedIncome = computed(() => {
-  if (!selectedIncomeId.value || !incomeItems.value?.incomes) return null;
-  return (
-    incomeItems.value.incomes.find((i) => i.id === selectedIncomeId.value) ||
-    null
-  );
+  if (!selectedIncomeId.value) return null;
+  return incomeItems.value.find((i) => i.id === selectedIncomeId.value) ?? null;
 });
 
 const fromAccount = computed(() => {
@@ -100,7 +97,6 @@ async function handleTag() {
       emit("tagged", data.value.income);
       emit("update:open", false);
 
-      // Show success toast
       useToast().add({
         title: "Transaction Tagged",
         description: `Tagged to ${data.value.income.name}`,
@@ -159,11 +155,10 @@ function handleClose() {
           </label>
           <USelectMenu
             v-model="selectedIncomeId"
-            :options="incomeItems?.incomes || []"
+            :options="incomeItems"
             option-attribute="name"
             value-attribute="id"
             placeholder="Select income item"
-            :loading="loadingIncome"
           >
             <template #label>
               {{ selectedIncome ? selectedIncome.name : "Select income item" }}

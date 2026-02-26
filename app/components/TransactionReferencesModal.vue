@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type { TransactionReference, AmountCondition } from "#db/schema";
 import type { TableColumn, SelectItem } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
+import { queries } from "~/db/zero-queries";
 
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
@@ -16,31 +18,17 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>("open", { default: false });
 const toast = useToast();
+const z = useZero();
 
-// Fetch references via $fetch to avoid useFetch caching issues
-const references = ref<TransactionReference[]>([]);
-const pending = ref(false);
-
-async function fetchReferences() {
-  pending.value = true;
-  try {
-    const data = await $fetch<{
-      success: boolean;
-      references: TransactionReference[];
-    }>(`/api/categories/${props.categoryId}/references`);
-    references.value = data.references || [];
-  } catch (error) {
-    console.error("Failed to fetch references:", error);
-    references.value = [];
-  } finally {
-    pending.value = false;
-  }
-}
-
-// Refresh when modal opens
-watch(open, (isOpen) => {
-  if (isOpen) fetchReferences();
-});
+// Fetch references from Zero
+const { data: references } = useQuery(
+  z,
+  () =>
+    queries.transactionReferences.byCategory(
+      { categoryId: props.categoryId },
+      { userID: z.userID },
+    ),
+);
 
 // Edit state
 const editingRefId = ref<string | null>(null);
@@ -92,13 +80,13 @@ async function saveAmountCondition(refId: string) {
         ? { operator: editOperator.value, value: editValue.value }
         : null;
 
-    await $fetch(`/api/categories/${props.categoryId}/references/${refId}`, {
-      method: "PATCH",
-      body: { amountCondition: condition },
+    await z.mutate.transactionReferences.update({
+      id: refId,
+      amountCondition: condition,
+      updatedAt: Date.now(),
     });
 
     editingRefId.value = null;
-    await fetchReferences();
     emit("updated");
     toast.add({ title: "Amount rule updated", color: "success" });
   } catch (error) {
@@ -109,12 +97,12 @@ async function saveAmountCondition(refId: string) {
 
 async function removeAmountCondition(refId: string) {
   try {
-    await $fetch(`/api/categories/${props.categoryId}/references/${refId}`, {
-      method: "PATCH",
-      body: { amountCondition: null },
+    await z.mutate.transactionReferences.update({
+      id: refId,
+      amountCondition: null,
+      updatedAt: Date.now(),
     });
 
-    await fetchReferences();
     emit("updated");
     toast.add({ title: "Amount rule removed", color: "success" });
   } catch (error) {
@@ -133,11 +121,8 @@ async function deleteReference(refId: string) {
   }
 
   try {
-    await $fetch(`/api/categories/${props.categoryId}/references/${refId}`, {
-      method: "DELETE",
-    });
+    await z.mutate.transactionReferences.delete({ id: refId });
 
-    await fetchReferences();
     emit("updated");
     toast.add({ title: "Reference deleted", color: "success" });
   } catch (error) {
@@ -238,11 +223,7 @@ const columns: TableColumn<TransactionReference>[] = [
           this category during sync.
         </p>
 
-        <div v-if="pending" class="text-center py-8">
-          <p class="text-muted">Loading references...</p>
-        </div>
-
-        <div v-else-if="references.length > 0" class="space-y-4">
+        <div v-if="references.length > 0" class="space-y-4">
           <div class="overflow-x-auto">
             <UTable
               :data="references"

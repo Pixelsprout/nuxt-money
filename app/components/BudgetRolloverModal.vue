@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import { createReusableTemplate } from "@vueuse/core";
+import { queries } from "~/db/zero-queries";
 
 const [DefineRolloverFormTemplate, ReuseRolloverFormTemplate] =
   createReusableTemplate();
@@ -15,57 +17,55 @@ const emit = defineEmits<{
 
 const isDesktop = useSSRMediaQuery("(min-width: 768px)");
 const open = defineModel<boolean>("open", { default: false });
-
 const toast = useToast();
+const z = useZero();
+
+// Load budget child items from Zero
+const { data: incomeItems } = useQuery(
+  z,
+  () =>
+    queries.budgetIncome.byBudget(
+      { budgetId: props.budgetId },
+      { userID: z.userID },
+    ),
+);
+const { data: expenseItems } = useQuery(
+  z,
+  () =>
+    queries.fixedExpenses.byBudget(
+      { budgetId: props.budgetId },
+      { userID: z.userID },
+    ),
+);
+const { data: allocationItems } = useQuery(
+  z,
+  () =>
+    queries.categoryAllocations.byBudget(
+      { budgetId: props.budgetId },
+      { userID: z.userID },
+    ),
+);
+
+const copiedItems = computed(() => ({
+  incomeCount: incomeItems.value.length,
+  expenseCount: expenseItems.value.length,
+  allocationCount: allocationItems.value.length,
+}));
 
 const loading = ref(false);
 const error = ref("");
 const newBudgetName = ref("");
-const copiedItems = ref<{
-  incomeCount: number;
-  expenseCount: number;
-  allocationCount: number;
-} | null>(null);
 
 const resetModal = () => {
   newBudgetName.value = "";
-  copiedItems.value = null;
   error.value = "";
 };
 
-watch(open, async (value) => {
-  if (value) {
-    await fetchBudgetDetails();
-  } else {
+watch(open, (value) => {
+  if (!value) {
     resetModal();
   }
 });
-
-const fetchBudgetDetails = async () => {
-  loading.value = true;
-  error.value = "";
-
-  try {
-    const response = await $fetch(`/api/budgets/${props.budgetId}`);
-
-    if (response.success) {
-      const incomeCount = response.income?.length || 0;
-      const expenseCount = response.fixedExpenses?.length || 0;
-      const allocationCount = response.allocations?.length || 0;
-
-      copiedItems.value = {
-        incomeCount,
-        expenseCount,
-        allocationCount,
-      };
-    }
-  } catch (err: any) {
-    console.error("Failed to fetch budget details:", err);
-    error.value = err.data?.message || "Failed to fetch budget details.";
-  } finally {
-    loading.value = false;
-  }
-};
 
 const rollOverBudget = async () => {
   loading.value = true;
@@ -129,16 +129,8 @@ const rollOverBudget = async () => {
         becomes active
       </p>
 
-      <!-- Loading State -->
-      <div
-        v-if="loading && copiedItems === null"
-        class="text-center py-6 text-muted"
-      >
-        Loading budget details...
-      </div>
-
       <!-- Copied Items Preview -->
-      <div v-else-if="copiedItems" class="space-y-2">
+      <div class="space-y-2">
         <div class="text-sm font-medium text-muted-foreground">
           Items that will be copied:
         </div>

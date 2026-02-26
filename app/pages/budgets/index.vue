@@ -1,16 +1,17 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type { Budget } from "#db/schema";
+import { queries } from "~/db/zero-queries";
 
 definePageMeta({ layout: "default" });
 
-const { data, refresh, pending } = await useFetch<{
-  success: boolean;
-  budgets: Budget[];
-}>("/api/budgets");
+const z = useZero();
+const { data: budgets } = useQuery(
+  z,
+  () => queries.budgets.list({ userID: z.userID }),
+);
 
-const budgets = computed(() => data.value?.budgets || []);
-
-const formatDate = (date: Date | string) => {
+const formatDate = (date: Date | string | number) => {
   return new Date(date).toLocaleDateString("en-NZ", {
     year: "numeric",
     month: "short",
@@ -62,9 +63,7 @@ const getStatusLabel = (status: string | null) => {
   }
 };
 
-const isDraft = (budget: Budget) => {
-  return budget.status === "DRAFT";
-};
+const isDraft = (budget: Budget) => budget.status === "DRAFT";
 
 const handleEditClick = (event: Event, budgetId: string) => {
   event.stopPropagation();
@@ -92,14 +91,9 @@ const handleEditClick = (event: Event, budgetId: string) => {
           </p>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="pending" class="text-center py-12 text-muted">
-          Loading budgets...
-        </div>
-
         <!-- Empty State -->
         <div
-          v-else-if="budgets.length === 0"
+          v-if="budgets.length === 0"
           class="text-center py-12 space-y-4"
         >
           <div class="text-muted">
@@ -149,7 +143,6 @@ const handleEditClick = (event: Event, budgetId: string) => {
             </div>
 
             <div class="mt-4 pt-3 border-t">
-              <!-- Edit button for drafts, View Details for others -->
               <div v-if="isDraft(budget)" class="flex gap-2">
                 <UButton
                   size="sm"

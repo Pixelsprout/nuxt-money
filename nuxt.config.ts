@@ -6,6 +6,8 @@ checkEnv(env);
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  ssr: false,
+
   ui: {
     dashboardPanel: {
       ui: {
@@ -16,7 +18,7 @@ export default defineNuxtConfig({
   modules: [
     "@nuxt/eslint",
     "@nuxt/ui",
-    "@nuxt/hints",
+    // "@nuxt/hints",
     "@nuxt/image",
     "@nuxt/test-utils",
   ],
@@ -36,6 +38,8 @@ export default defineNuxtConfig({
     AKAHU_USER_TOKEN: process.env.AKAHU_USER_TOKEN,
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      zeroServer:
+        process.env.NUXT_PUBLIC_ZERO_SERVER || "http://localhost:4848",
     },
   },
 
@@ -47,6 +51,15 @@ export default defineNuxtConfig({
 
   routeRules: {
     "/": { prerender: false },
+  },
+
+  vite: {
+    optimizeDeps: {
+      include: ["@rocicorp/zero"],
+    },
+    build: {
+      target: "es2022",
+    },
   },
 
   compatibilityDate: "2025-01-15",

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useQuery } from "zero-vue";
 import type {
   CategoryAllocation,
   FixedExpense,
   TransactionCategory,
 } from "#db/schema";
 import { nanoid } from "nanoid";
+import { queries } from "~/db/zero-queries";
 
 const modelValue = defineModel<CategoryAllocation[]>({ required: true });
 
@@ -14,22 +16,17 @@ const props = defineProps<{
   fixedExpenseItems: FixedExpense[];
 }>();
 
-// Fetch categories
-const { data: categoriesData } = await useFetch<{
-  categories: TransactionCategory[];
-}>("/api/categories");
+// Fetch categories and averages from Zero
+const z = useZero();
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
 
-const categories = computed(() => categoriesData.value?.categories || []);
-
-// Fetch 3-month spending averages per category to pre-fill allocations
-const { data: averagesData } = await useFetch<{
-  suggestions: Array<{ categoryId: string; suggestedAmount: number }>;
-}>("/api/transactions/category-averages", {
-  query: {
-    periodStart: computed(() => props.periodStart.toISOString()),
-    period: computed(() => props.budgetPeriod),
-  },
-});
+const averagesSuggestions = useCategoryAverages(
+  computed(() => props.periodStart),
+  computed(() => props.budgetPeriod),
+);
 
 // Normalize any frequency to a monthly amount (in cents)
 const normalizeToMonthly = (amountCents: number, frequency: string): number => {
@@ -89,10 +86,10 @@ watch(
   { immediate: true },
 );
 
-// Build a lookup map from categoryId → suggestedAmount (cents) for use in addAllocation
+// Build a lookup map from categoryId → suggestedAmount (cents)
 const suggestedAmounts = computed(() => {
   const map = new Map<string, number>();
-  for (const s of averagesData.value?.suggestions ?? []) {
+  for (const s of averagesSuggestions.value) {
     map.set(s.categoryId, s.suggestedAmount);
   }
   return map;
