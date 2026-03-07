@@ -51,10 +51,13 @@ const { data: allTransactions } = useQuery(
   () => queries.transactions.all({ userID: z.userID }),
 );
 
-// Filter to DEBIT transactions and TRANSFER transactions with negative amounts (e.g. mortgage payments)
+// Filter to expense-like transactions: debits, loans, and negative transfers (e.g. mortgage payments)
 const transactions = computed(() =>
   allTransactions.value.filter(
-    (t) => t.type === "DEBIT" || (t.type === "TRANSFER" && t.amount < 0),
+    (t) =>
+      t.type === "DEBIT" ||
+      t.type === "LOAN" ||
+      (t.type === "TRANSFER" && t.amount < 0),
   ),
 );
 
@@ -70,13 +73,33 @@ const filteredTransactions = computed(() => {
 
 const alreadyMatchedTransactionIds = computed(() => {
   const ids = new Set<string>();
+
+  // Build patterns from saved expenses
+  const patterns: { merchant?: string; description?: string }[] = [];
   for (const expense of modelValue.value) {
     const pattern = expense.matchPattern as {
       merchant?: string;
       description?: string;
     } | null;
-    if (!pattern) continue;
+    if (pattern) patterns.push(pattern);
+  }
+
+  // Build patterns from currently selected transactions
+  for (const id of selectedTransactionIds.value) {
+    const t = transactions.value.find((tx) => tx.id === id);
+    if (!t) continue;
+    if (t.merchant || t.description) {
+      patterns.push({
+        ...(t.merchant && { merchant: t.merchant }),
+        ...(t.description && { description: t.description }),
+      });
+    }
+  }
+
+  // Match all transactions against all patterns
+  for (const pattern of patterns) {
     for (const t of transactions.value) {
+      if (selectedTransactionIds.value.has(t.id)) continue;
       const merchantMatch =
         pattern.merchant && t.merchant === pattern.merchant;
       const descriptionMatch =
