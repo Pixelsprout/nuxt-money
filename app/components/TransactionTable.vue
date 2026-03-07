@@ -149,6 +149,11 @@ const defaultColumns: TableColumn<AkahuTransaction>[] = [
     cell: ({ row }) => {
       const transaction = row.original;
 
+      // Only show category selector for expenses (debits and negative transfers)
+      if (transaction.type === "CREDIT") {
+        return "-";
+      }
+
       return h(CategorySelector, {
         modelValue: transaction.categoryId,
         categories: categories.value,

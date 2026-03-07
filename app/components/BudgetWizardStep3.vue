@@ -51,9 +51,11 @@ const { data: allTransactions } = useQuery(
   () => queries.transactions.all({ userID: z.userID }),
 );
 
-// Filter to DEBIT transactions only for expenses
+// Filter to DEBIT transactions and TRANSFER transactions with negative amounts (e.g. mortgage payments)
 const transactions = computed(() =>
-  allTransactions.value.filter((t) => t.type === "DEBIT"),
+  allTransactions.value.filter(
+    (t) => t.type === "DEBIT" || (t.type === "TRANSFER" && t.amount < 0),
+  ),
 );
 
 const filteredTransactions = computed(() => {
