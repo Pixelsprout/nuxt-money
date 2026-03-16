@@ -74,13 +74,17 @@ const alreadyMatchedTransactionIds = computed(() => {
   const ids = new Set<string>();
 
   // Build patterns from saved expenses
-  const patterns: { merchant?: string; description?: string }[] = [];
+  const patterns: {
+    merchant?: string;
+    description?: string;
+    amount?: number;
+  }[] = [];
   for (const expense of modelValue.value) {
     const pattern = expense.matchPattern as {
       merchant?: string;
       description?: string;
     } | null;
-    if (pattern) patterns.push(pattern);
+    if (pattern) patterns.push({ ...pattern, amount: expense.amount });
   }
 
   // Build patterns from currently selected transactions
@@ -88,9 +92,13 @@ const alreadyMatchedTransactionIds = computed(() => {
     const t = transactions.value.find((tx) => tx.id === id);
     if (!t) continue;
     if (t.merchant || t.description) {
+      const amountCents = Math.round(
+        Math.abs((t.amount as any)?.value || 0) * 100,
+      );
       patterns.push({
         ...(t.merchant && { merchant: t.merchant }),
         ...(t.description && { description: t.description }),
+        amount: amountCents,
       });
     }
   }
@@ -99,6 +107,11 @@ const alreadyMatchedTransactionIds = computed(() => {
   for (const pattern of patterns) {
     for (const t of transactions.value) {
       if (selectedTransactionIds.value.has(t.id)) continue;
+      const amountCents = Math.round(
+        Math.abs((t.amount as any)?.value || 0) * 100,
+      );
+      if (pattern.amount !== undefined && pattern.amount !== amountCents)
+        continue;
       const merchantMatch =
         pattern.merchant && t.merchant === pattern.merchant;
       const descriptionMatch =
