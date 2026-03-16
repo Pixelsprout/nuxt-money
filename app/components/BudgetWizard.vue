@@ -408,8 +408,9 @@ const applyMutations = async (
         updatedAt: now,
       });
     } else {
+      const newId = nanoid();
       await z.mutate.budgetIncome.create({
-        id: nanoid(),
+        id: newId,
         budgetId: targetBudgetId,
         name: income.name,
         amount: income.amount,
@@ -421,6 +422,7 @@ const applyMutations = async (
         createdAt: now,
         updatedAt: now,
       });
+      income._id = newId;
     }
   }
 
@@ -444,8 +446,9 @@ const applyMutations = async (
         updatedAt: now,
       });
     } else {
+      const newId = nanoid();
       await z.mutate.fixedExpenses.create({
-        id: nanoid(),
+        id: newId,
         budgetId: targetBudgetId,
         name: expense.name,
         amount: expense.amount,
@@ -458,6 +461,7 @@ const applyMutations = async (
         createdAt: now,
         updatedAt: now,
       });
+      expense._id = newId;
     }
   }
 
@@ -475,8 +479,9 @@ const applyMutations = async (
         updatedAt: now,
       });
     } else {
+      const newId = nanoid();
       await z.mutate.allocations.create({
-        id: nanoid(),
+        id: newId,
         budgetId: targetBudgetId,
         categoryId: allocation.categoryId,
         allocatedAmount: allocation.allocatedAmount,
@@ -484,6 +489,7 @@ const applyMutations = async (
         createdAt: now,
         updatedAt: now,
       });
+      allocation._id = newId;
     }
   }
 
