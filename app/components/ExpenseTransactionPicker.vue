@@ -40,9 +40,13 @@ const { data: links } = useQuery(
     ),
 );
 
-// DEBIT transactions only
+// Expense-like transactions: everything except credits and positive transfers
 const transactions = computed(() =>
-  allTransactions.value.filter((t) => t.type === "DEBIT"),
+  allTransactions.value.filter(
+    (t) =>
+      t.type !== "CREDIT" &&
+      !(t.type === "TRANSFER" && t.amount >= 0),
+  ),
 );
 
 // Set of already-tagged transaction IDs
