@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { FixedExpense } from "#db/schema";
+import { useQuery } from "zero-vue";
+import { queries } from "~/db/zero-queries";
 
 definePageMeta({ layout: "default" });
 
@@ -8,6 +10,15 @@ const toast = useToast();
 const budgetId = route.params.id as string;
 
 const z = useZero();
+
+const { data: categories } = useQuery(
+  z,
+  () => queries.categories.list({ userID: z.userID }),
+);
+
+const getCategoryName = (categoryId: string) => {
+  return categories.value.find((c) => c.id === categoryId)?.name ?? categoryId;
+};
 
 const {
   budget,
@@ -224,7 +235,7 @@ const deleteBudget = async () => {
               class="p-4 border rounded-lg"
             >
               <div class="flex justify-between items-center mb-2">
-                <span class="font-medium">{{ cat.categoryId }}</span>
+                <span class="font-medium">{{ getCategoryName(cat.categoryId) }}</span>
                 <UBadge :color="getStatusColor(cat.status)" size="sm">
                   {{ cat.status.replace("_", " ") }}
                 </UBadge>
